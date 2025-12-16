@@ -20,24 +20,31 @@ export default function SettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('nexryde_token');
-    
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
+    // Check if user is logged in (only runs on client)
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('nexryde_token');
+      
+      if (!token) {
+        router.push('/auth/login');
+        setIsLoading(false);
+        return;
+      }
 
-    // Load user data from localStorage
-    loadUserData();
+      // Load user data from localStorage
+      loadUserData();
+    } else {
+      setIsLoading(false);
+    }
   }, [router]);
 
   const loadUserData = async () => {
     try {
-      const userData = localStorage.getItem('nexryde_user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
+      if (typeof window !== 'undefined') {
+        const userData = localStorage.getItem('nexryde_user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);

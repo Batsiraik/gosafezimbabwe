@@ -16,14 +16,18 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('nexryde_token');
-    const userData = localStorage.getItem('nexryde_user');
-    
-    if (token && userData) {
-      setIsAuthenticated(true);
-      // Redirect to dashboard if authenticated
-      router.push('/dashboard');
+    // Check if user is authenticated (only runs on client)
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('nexryde_token');
+      const userData = localStorage.getItem('nexryde_user');
+      
+      if (token && userData) {
+        setIsAuthenticated(true);
+        // Redirect to dashboard if authenticated
+        router.push('/dashboard');
+      } else {
+        setIsAuthenticated(false);
+      }
     }
   }, [router]);
 
