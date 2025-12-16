@@ -3,14 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User, Phone, MapPin, Lock } from 'lucide-react';
+import { ArrowLeft, User, Phone, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
-    city: '',
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -119,32 +118,6 @@ export default function RegisterPage() {
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
                 />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-white/70 text-sm font-medium mb-2">
-                City
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
-                <select
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                  required
-                >
-                  <option value="" className="bg-gray-800">Select your city</option>
-                  <option value="Harare" className="bg-gray-800">Harare</option>
-                  <option value="Bulawayo" className="bg-gray-800">Bulawayo</option>
-                  <option value="Gweru" className="bg-gray-800">Gweru</option>
-                  <option value="Mutare" className="bg-gray-800">Mutare</option>
-                  <option value="Kwekwe" className="bg-gray-800">Kwekwe</option>
-                  <option value="Kadoma" className="bg-gray-800">Kadoma</option>
-                  <option value="Chitungwiza" className="bg-gray-800">Chitungwiza</option>
-                  <option value="Masvingo" className="bg-gray-800">Masvingo</option>
-                </select>
               </div>
             </div>
 
