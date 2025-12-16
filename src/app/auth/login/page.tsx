@@ -61,7 +61,7 @@ export default function LoginPage() {
               <span className="text-2xl">🚗</span>
             </motion.div>
             <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-white/80">Sign in to your NexRyde account</p>
+            <p className="text-white/80">Sign in to your ONEGO account</p>
           </div>
 
           {/* Login Form */}
