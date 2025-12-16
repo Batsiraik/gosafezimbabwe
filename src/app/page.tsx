@@ -41,7 +41,7 @@ export default function Home() {
                 <span className="text-2xl">🚗</span>
               </div>
               <h1 className="text-3xl font-bold text-white mb-2">ONEGO</h1>
-              <p className="text-white/80">Your ride app for Zimbabwe</p>
+              <p className="text-white/80">Your go to App for Everything</p>
             </div>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function Home() {
                 <span className="text-2xl">🚗</span>
               </motion.div>
               <h1 className="text-3xl font-bold text-white mb-2">ONEGO</h1>
-              <p className="text-white/80">Your ride app for Zimbabwe</p>
+              <p className="text-white/80">Your go to App for Everything.</p>
             </div>
 
             <div className="space-y-4">

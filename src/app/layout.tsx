@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ONEGO - Your Ride App for Zimbabwe",
-  description: "Book rides, get around town, and travel safely with ONEGO in Zimbabwe",
+  title: "ONEGO - Your Go to App for Everything",
+  description: "Book rides, get around town, and travel safely with ONEGO",
 };
 
 export default function RootLayout({

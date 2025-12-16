@@ -380,7 +380,7 @@ export default function RidePage() {
             },
             body: JSON.stringify({
               input: value,
-              includedRegionCodes: ['ZW'], // Zimbabwe
+              includedRegionCodes: ['ZW'],
               locationBias: currentLocation ? {
                 circle: {
                   center: {
