@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   // Handle module selection
@@ -17,41 +16,23 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Mark component as mounted
-    setMounted(true);
-    
     // Check if user is authenticated (only runs on client)
-    const token = localStorage.getItem('nexryde_token');
-    const userData = localStorage.getItem('nexryde_user');
-    
-    if (token && userData) {
-      setIsAuthenticated(true);
-      // Redirect to dashboard if authenticated
-      router.push('/dashboard');
-    } else {
-      setIsAuthenticated(false);
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('nexryde_token');
+      const userData = localStorage.getItem('nexryde_user');
+      
+      if (token && userData) {
+        setIsAuthenticated(true);
+        // Redirect to dashboard if authenticated
+        router.push('/dashboard');
+      } else {
+        setIsAuthenticated(false);
+      }
     }
   }, [router]);
 
-  // Show loading state during SSR/hydration to prevent mismatch
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-nexryde-yellow-darker flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span className="text-2xl">🚗</span>
-              </div>
-              <h1 className="text-3xl font-bold text-white mb-2">NexRyde</h1>
-              <p className="text-white/80">Your ride app for Zimbabwe</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Always render the login screen initially - this ensures consistent SSR/client render
+  // The redirect will happen client-side if authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-nexryde-yellow-darker flex items-center justify-center p-4">
