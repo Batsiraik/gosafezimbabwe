@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 // PUT /api/driver/bus/schedules/[id] - Update a bus schedule
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -27,7 +27,7 @@ export async function PUT(
       );
     }
 
-    const scheduleId = params.id;
+    const { id: scheduleId } = await params;
     const body = await request.json();
     const { fromCityId, toCityId, departureTime, arrivalTime, station, price, totalSeats, conductorPhone, isActive, daysOfWeek } = body;
 
@@ -134,7 +134,7 @@ export async function PUT(
 // DELETE /api/driver/bus/schedules/[id] - Delete a bus schedule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -156,7 +156,7 @@ export async function DELETE(
       );
     }
 
-    const scheduleId = params.id;
+    const { id: scheduleId } = await params;
 
     // Get bus provider profile
     const provider = await prisma.busProvider.findUnique({
