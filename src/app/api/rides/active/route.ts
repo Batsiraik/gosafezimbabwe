@@ -64,13 +64,11 @@ export async function GET(request: NextRequest) {
       const driverUserId = activeRide.driver.user.id;
       
       // Check if user has already rated this driver for this ride
-      const existingRating = await prisma.rating.findUnique({
+      const existingRating = await prisma.rating.findFirst({
         where: {
-          rideRequestId_raterId_rateeId: {
-            rideRequestId: activeRide.id,
-            raterId: decoded.userId,
-            rateeId: driverUserId,
-          },
+          rideRequestId: activeRide.id,
+          raterId: decoded.userId,
+          rateeId: driverUserId,
         },
       });
 

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       where: { id: rideId },
       data: {
         driverId: driver.id,
-        driverBidPrice: bidPrice || ride.price, // Use bid price or original price
+        finalPrice: bidPrice || ride.price, // Use bid price or original price
         status: 'accepted',
       },
       include: {

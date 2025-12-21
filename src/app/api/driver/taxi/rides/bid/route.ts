@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (ride.status !== 'searching' && ride.status !== 'bid_received') {
+    if (ride.status !== 'searching' && ride.status !== 'bid_received' && ride.status !== 'pending') {
       return NextResponse.json(
         { error: 'Ride is no longer accepting bids' },
         { status: 400 }
