@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
           matchedPassengers: activeRequest.userType === 'has-car' 
             ? activeRequest.driverMatches.map(m => ({
                 id: m.passengerRequest.id,
-                matchId: m.id, // Add matchId for ending the ride
+                matchId: m.id, // Match ID for ending the ride
                 user: {
                   id: m.passengerRequest.user.id,
                   fullName: m.passengerRequest.user.fullName,
@@ -126,7 +126,6 @@ export async function GET(request: NextRequest) {
                 userBags: m.passengerRequest.userBags,
                 note: m.passengerRequest.note,
                 status: m.status, // Include status to check if already completed
-                matchId: m.id, // Match ID for ending the ride
               }))
             : [],
           createdAt: activeRequest.createdAt,
