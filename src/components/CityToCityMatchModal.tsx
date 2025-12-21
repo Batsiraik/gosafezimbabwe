@@ -63,6 +63,11 @@ interface MatchedPassenger {
     fullName: string;
     phone: string;
   };
+  travelDate?: string;
+  willingToPay?: number; // Passenger's willing to pay amount
+  neededSeats?: number;
+  userBags?: number;
+  note?: string | null;
   status?: string; // Match status (active, completed, cancelled)
 }
 

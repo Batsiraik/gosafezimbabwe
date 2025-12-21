@@ -177,24 +177,32 @@ export async function GET(request: NextRequest) {
 
       const suggestionRequests = await prisma.cityToCityRequest.findMany({
         where: {
-          id: { not: userRequest.id },
-          userId: { not: decoded.userId },
-          fromCityId: userRequest.fromCityId,
-          toCityId: userRequest.toCityId,
-          travelDate: {
-            OR: [
-              {
-                gte: dayBeforeStart,
-                lte: dayBeforeEnd,
-              },
-              {
-                gte: dayAfterStart,
-                lte: dayAfterEnd,
-              },
-            ],
-          },
-          userType: 'has-car',
-          status: 'searching',
+          AND: [
+            {
+              id: { not: userRequest.id },
+              userId: { not: decoded.userId },
+              fromCityId: userRequest.fromCityId,
+              toCityId: userRequest.toCityId,
+              userType: 'has-car',
+              status: 'searching',
+            },
+            {
+              OR: [
+                {
+                  travelDate: {
+                    gte: dayBeforeStart,
+                    lte: dayBeforeEnd,
+                  },
+                },
+                {
+                  travelDate: {
+                    gte: dayAfterStart,
+                    lte: dayAfterEnd,
+                  },
+                },
+              ],
+            },
+          ],
         },
         include: {
           user: {
@@ -205,20 +213,8 @@ export async function GET(request: NextRequest) {
               profilePictureUrl: true,
             },
           },
-          fromCity: {
-            select: {
-              id: true,
-              name: true,
-              country: true,
-            },
-          },
-          toCity: {
-            select: {
-              id: true,
-              name: true,
-              country: true,
-            },
-          },
+          fromCity: true,
+          toCity: true,
         },
         orderBy: {
           createdAt: 'desc',

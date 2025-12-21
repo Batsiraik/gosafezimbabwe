@@ -65,13 +65,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if rating exists
-    const existingRating = await prisma.rating.findUnique({
+    const existingRating = await prisma.rating.findFirst({
       where: {
-        rideRequestId_raterId_rateeId: {
-          rideRequestId: rideId,
-          raterId: decoded.userId,
-          rateeId: rateeId,
-        },
+        rideRequestId: rideId,
+        raterId: decoded.userId,
+        rateeId: rateeId,
       },
     });
 

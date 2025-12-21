@@ -19,7 +19,8 @@ interface ActiveServiceRequest {
   serviceId: string;
   jobDescription: string;
   budget: number;
-  originalPrice?: number;
+  price?: number; // Final price after bid acceptance (from finalPrice in DB)
+  originalPrice?: number; // Original budget (same as budget)
   location: string;
   status: string;
   createdAt: string;

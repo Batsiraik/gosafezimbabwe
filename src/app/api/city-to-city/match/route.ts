@@ -117,10 +117,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create match record (allows multiple matches for drivers)
+    // Since userRequest.userType is 'has-car' (checked above), userRequest is the driver
     const match = await prisma.cityToCityMatch.create({
       data: {
-        driverRequestId: userRequest.userType === 'has-car' ? userRequest.id : matchRequest.id,
-        passengerRequestId: userRequest.userType === 'has-car' ? matchRequest.id : userRequest.id,
+        driverRequestId: userRequest.id, // userRequest is the driver
+        passengerRequestId: matchRequest.id, // matchRequest is the passenger
         status: 'active',
       },
       include: {
@@ -152,15 +153,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Update passenger request to matched status (only one match per passenger)
-    if (userRequest.userType === 'needs-car') {
-      await prisma.cityToCityRequest.update({
-        where: { id: userRequest.id },
-        data: { status: 'matched' },
-      });
-    }
+    // Note: Since only 'has-car' users can initiate matches, we update the passenger's request
+    await prisma.cityToCityRequest.update({
+      where: { id: matchRequest.id }, // Update the passenger's request (matchRequest is the passenger)
+      data: { status: 'matched' },
+    });
 
     // Update driver request to matched if they got all their passengers
-    if (userRequest.userType === 'has-car' && userRequest.numberOfSeats) {
+    if (userRequest.numberOfSeats) {
       const totalMatches = await prisma.cityToCityMatch.count({
         where: {
           driverRequestId: userRequest.id,
@@ -176,25 +176,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const matchedUser = userRequest.userType === 'has-car' 
-      ? match.passengerRequest.user 
-      : match.driverRequest.user;
+    // Since userRequest.userType is 'has-car' (checked above), we know:
+    // - userRequest is the driver
+    // - matchRequest is the passenger
+    // - match.passengerRequest is the passenger's request
+    // - match.driverRequest is the driver's request
 
     return NextResponse.json(
       {
         message: 'Successfully matched!',
         match: {
           id: match.id,
-          user: matchedUser,
-          travelDate: userRequest.userType === 'has-car' 
-            ? match.passengerRequest.travelDate 
-            : match.driverRequest.travelDate,
-          pricePerPassenger: userRequest.userType === 'has-car' 
-            ? userRequest.pricePerPassenger 
-            : match.driverRequest.pricePerPassenger,
-          willingToPay: userRequest.userType === 'needs-car' 
-            ? userRequest.willingToPay 
-            : match.passengerRequest.willingToPay,
+          user: match.passengerRequest.user, // The passenger who was matched
+          travelDate: match.passengerRequest.travelDate,
+          pricePerPassenger: userRequest.pricePerPassenger, // Driver's price per passenger
+          willingToPay: match.passengerRequest.willingToPay, // Passenger's willing to pay
         },
       },
       { status: 200 }
