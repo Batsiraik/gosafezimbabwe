@@ -275,7 +275,6 @@ export default function BusProviderDashboardPage() {
 
   // Handle edit schedule
   const handleEditSchedule = (schedule: BusSchedule) => {
-    setEditingSchedule(schedule);
     // Parse daysOfWeek string to array
     let selectedDays: string[] = [];
     if (schedule.daysOfWeek === 'daily') {
