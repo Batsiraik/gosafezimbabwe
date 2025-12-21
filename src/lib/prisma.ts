@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Ensure DATABASE_URL is available
+  // Ensure DATABASE_URL is available (only check when actually creating client)
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is not set. Please check your .env.local file.');
   }
@@ -27,9 +27,16 @@ function createPrismaClient() {
   });
 }
 
-export const prisma: PrismaClient =
-  globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
+// Lazy initialization - only create client when accessed, not at module load
+function getPrismaClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
 }
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return getPrismaClient()[prop as keyof PrismaClient];
+  },
+});
