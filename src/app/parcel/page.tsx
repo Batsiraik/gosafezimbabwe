@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Bike, Truck, Package } from 'lucide-react';
+import { ArrowLeft, MapPin, Bike } from 'lucide-react';
 import { GoogleMap, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import toast from 'react-hot-toast';
 import ActiveParcelModal from '@/components/ActiveParcelModal';

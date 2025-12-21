@@ -123,6 +123,41 @@ export default function TaxiDriverDashboardPage() {
     }
   }, [loadingDriver, driver, router]);
 
+  // Fetch pending rides
+  const fetchPendingRides = useCallback(async () => {
+    if (!driver || !driver.isVerified || !driver.isOnline) {
+      setPendingRides([]);
+      return;
+    }
+
+    try {
+      setLoadingRides(true);
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/driver/taxi/rides/pending', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPendingRides(data.rides || []);
+      } else if (response.status === 403) {
+        toast.error('Please wait for admin verification');
+      } else if (response.status === 400) {
+        const data = await response.json();
+        setLocationError(data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching pending rides:', error);
+      toast.error('Failed to load pending rides');
+    } finally {
+      setLoadingRides(false);
+    }
+  }, [driver]);
+
   // Get current location and update driver location with improved accuracy
   useEffect(() => {
     if (!driver || !driver.isVerified) return;
@@ -241,41 +276,6 @@ export default function TaxiDriverDashboardPage() {
       setIsTogglingOnline(false);
     }
   };
-
-  // Fetch pending rides
-  const fetchPendingRides = useCallback(async () => {
-    if (!driver || !driver.isVerified || !driver.isOnline) {
-      setPendingRides([]);
-      return;
-    }
-
-    try {
-      setLoadingRides(true);
-      const token = localStorage.getItem('nexryde_token');
-      if (!token) return;
-
-      const response = await fetch('/api/driver/taxi/rides/pending', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPendingRides(data.rides || []);
-      } else if (response.status === 403) {
-        toast.error('Please wait for admin verification');
-      } else if (response.status === 400) {
-        const data = await response.json();
-        setLocationError(data.error);
-      }
-    } catch (error) {
-      console.error('Error fetching pending rides:', error);
-      toast.error('Failed to load pending rides');
-    } finally {
-      setLoadingRides(false);
-    }
-  }, [driver]);
 
   // Fetch pending bids
   const fetchPendingBids = useCallback(async () => {
