@@ -9,16 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
     "@react-google-maps/api": "^2.20.7",
     "autoprefixer": "^10.4.21",
+    "bcryptjs": "^3.0.3",
     "framer-motion": "^11.0.0",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.400.0",
     "next": "^15.0.5",
+    "pg": "^8.16.3",
+    "prisma": "^7.2.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^20",
     "@types/react": "^19",

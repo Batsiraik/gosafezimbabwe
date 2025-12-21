@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({
@@ -33,13 +34,45 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    // Mock password reset - backend will be implemented later
-    setTimeout(() => {
-      toast.success('Password reset successfully! (Mock)');
+    try {
+      const phone = localStorage.getItem('temp_phone') || '';
+      
+      if (!phone) {
+        toast.error('Phone number not found. Please try again.');
+        router.push('/auth/forgot-password');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone,
+          otp: formData.otp,
+          newPassword: formData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Password reset failed');
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success('Password reset successfully!');
       localStorage.removeItem('temp_phone');
       setIsLoading(false);
       router.push('/auth/login');
-    }, 1000);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast.error('An error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -64,9 +97,9 @@ export default function ResetPasswordPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center"
+              className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
             >
-              <span className="text-2xl">🚗</span>
+              <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" priority />
             </motion.div>
             <h1 className="text-3xl font-bold text-white mb-2">Reset Password</h1>
             <p className="text-white/80">Enter OTP and new password</p>
@@ -89,6 +122,7 @@ export default function ResetPasswordPage() {
                   maxLength={6}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-center text-2xl tracking-widest"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -107,6 +141,7 @@ export default function ResetPasswordPage() {
                   placeholder="Enter new password"
                   className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
                 <button
                   type="button"
@@ -132,6 +167,7 @@ export default function ResetPasswordPage() {
                   placeholder="Confirm new password"
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>

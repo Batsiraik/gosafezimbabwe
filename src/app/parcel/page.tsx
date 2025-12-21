@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Bike, Truck, Package } from 'lucide-react';
 import { GoogleMap, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import toast from 'react-hot-toast';
+import ActiveParcelModal from '@/components/ActiveParcelModal';
 
 const libraries: ("places" | "drawing" | "geometry" | "localContext" | "visualization")[] = ['places', 'geometry'];
 
@@ -19,47 +20,13 @@ const defaultCenter = {
   lng: 31.0522
 };
 
-type VehicleType = 'motorbike' | 'truck' | 'big-truck';
-
-interface VehicleOption {
-  id: VehicleType;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  pricePerKm: number;
-  minPrice: number;
-}
-
-const vehicleOptions: VehicleOption[] = [
-  {
-    id: 'motorbike',
-    name: 'Motorbike',
-    description: 'Small parcels, documents',
-    icon: <Bike className="w-8 h-8" />,
-    pricePerKm: 0.40,
-    minPrice: 2.00
-  },
-  {
-    id: 'truck',
-    name: 'Truck / Mini Van',
-    description: 'Medium parcels, boxes',
-    icon: <Truck className="w-8 h-8" />,
-    pricePerKm: 0.60,
-    minPrice: 5.00
-  },
-  {
-    id: 'big-truck',
-    name: 'UD Big Truck',
-    description: 'Large items, furniture',
-    icon: <Package className="w-8 h-8" />,
-    pricePerKm: 1.20,
-    minPrice: 15.00
-  }
-];
+// Only motorbike delivery available
+const MOTORBIKE_PRICE_PER_KM = 0.40;
+const MOTORBIKE_MIN_PRICE = 2.00;
 
 export default function ParcelPage() {
   const router = useRouter();
-  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+  // Only motorbike delivery available - no vehicle selection needed
   const [fromLocation, setFromLocation] = useState<string>('');
   const [fromCoords, setFromCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [fromSuggestions, setFromSuggestions] = useState<any[]>([]);
@@ -72,7 +39,10 @@ export default function ParcelPage() {
   const [suggestedPrice, setSuggestedPrice] = useState<number>(0);
   const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
   const [mapCenter, setMapCenter] = useState(defaultCenter);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeParcel, setActiveParcel] = useState<any>(null);
+  const [showActiveParcelModal, setShowActiveParcelModal] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const fromInputRef = useRef<HTMLInputElement>(null);
@@ -319,15 +289,10 @@ export default function ParcelPage() {
 
           setDistance(distanceInKm);
 
-          // Calculate price based on vehicle type
-          if (selectedVehicle) {
-            const vehicle = vehicleOptions.find(v => v.id === selectedVehicle);
-            if (vehicle) {
-              const basePrice = distanceInKm * vehicle.pricePerKm;
-              const finalPrice = Math.max(basePrice, vehicle.minPrice);
-              setSuggestedPrice(finalPrice);
-            }
-          }
+          // Calculate price using motorbike pricing
+          const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
+          const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+          setSuggestedPrice(finalPrice);
 
           // Decode polyline for map display
           if (route.polyline?.encodedPolyline && window.google?.maps?.geometry) {
@@ -355,14 +320,10 @@ export default function ParcelPage() {
         const distanceInKm = calculateStraightLineDistance(fromCoords, toCoords);
         setDistance(distanceInKm);
 
-        if (selectedVehicle) {
-          const vehicle = vehicleOptions.find(v => v.id === selectedVehicle);
-          if (vehicle) {
-            const basePrice = distanceInKm * vehicle.pricePerKm;
-            const finalPrice = Math.max(basePrice, vehicle.minPrice);
-            setSuggestedPrice(finalPrice);
-          }
-        }
+        // Calculate price using motorbike pricing
+        const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
+        const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+        setSuggestedPrice(finalPrice);
 
         setRoutePath([fromCoords, toCoords]);
         toast('Using estimated distance. Enable Routes API for accurate routing.', { icon: '⚠️' });
@@ -372,19 +333,15 @@ export default function ParcelPage() {
       const distanceInKm = calculateStraightLineDistance(fromCoords, toCoords);
       setDistance(distanceInKm);
 
-      if (selectedVehicle) {
-        const vehicle = vehicleOptions.find(v => v.id === selectedVehicle);
-        if (vehicle) {
-          const basePrice = distanceInKm * vehicle.pricePerKm;
-          const finalPrice = Math.max(basePrice, vehicle.minPrice);
-          setSuggestedPrice(finalPrice);
-        }
-      }
+      // Calculate price using motorbike pricing
+      const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
+      const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+      setSuggestedPrice(finalPrice);
 
       setRoutePath([fromCoords, toCoords]);
       toast.error('Could not calculate route. Using estimated distance.');
     }
-  }, [fromCoords, toCoords, selectedVehicle, isLoaded]);
+  }, [fromCoords, toCoords, isLoaded]);
 
   // Helper function to calculate straight-line distance
   const calculateStraightLineDistance = (
@@ -407,7 +364,7 @@ export default function ParcelPage() {
     if (fromCoords && toCoords && isLoaded) {
       calculateRoute();
     }
-  }, [fromCoords, toCoords, selectedVehicle, isLoaded, calculateRoute]);
+  }, [fromCoords, toCoords, isLoaded, calculateRoute]);
 
   // Update map center when locations change
   useEffect(() => {
@@ -482,18 +439,110 @@ export default function ParcelPage() {
     updateMarkers();
   };
 
-  const handleConfirmBooking = () => {
-    if (!selectedVehicle) {
-      toast.error('Please select a vehicle type');
-      return;
+  // Stop polling helper
+  // Check for active parcel
+  const checkActiveParcel = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/parcels/active', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.activeParcel) {
+          setActiveParcel(data.activeParcel);
+          setShowActiveParcelModal(true);
+        } else {
+          setActiveParcel(null);
+          setShowActiveParcelModal(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active parcel:', error);
     }
+  }, []);
+
+  const handleConfirmBooking = async () => {
+    // Vehicle type is always motorbike - no need to check
     if (!fromCoords || !toCoords) {
       toast.error('Please select both pickup and delivery locations');
       return;
     }
-    // TODO: Handle booking confirmation (backend integration)
-    toast.success('Parcel booking confirmed! (Mock)');
+    if (!fromLocation || !toLocation) {
+      toast.error('Please ensure both locations have addresses');
+      return;
+    }
+    if (distance === 0) {
+      toast.error('Please wait for route calculation');
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) {
+        toast.error('Please log in to send a parcel');
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch('/api/parcels/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          vehicleType: 'motorbike', // Always motorbike
+          pickupLat: fromCoords.lat,
+          pickupLng: fromCoords.lng,
+          pickupAddress: fromLocation,
+          deliveryLat: toCoords.lat,
+          deliveryLng: toCoords.lng,
+          deliveryAddress: toLocation,
+          distance,
+          price: suggestedPrice,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to create parcel request');
+        return;
+      }
+
+      toast.success('Parcel request created! Searching for drivers...');
+      // Refresh active parcel
+      await checkActiveParcel();
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast.error('Failed to create parcel request. Please try again.');
+    } finally {
+      setIsBooking(false);
+    }
   };
+
+  // Check for active parcel on mount and poll continuously
+  useEffect(() => {
+    // Check immediately on mount
+    checkActiveParcel();
+    
+    // Poll every 3 seconds
+    const interval = setInterval(() => {
+      checkActiveParcel();
+    }, 3000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // Cleanup is handled in the useEffect above
 
   // Cleanup
   useEffect(() => {
@@ -541,42 +590,26 @@ export default function ParcelPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 ${showActiveParcelModal && activeParcel ? 'pointer-events-none overflow-hidden' : ''}`}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="space-y-6"
         >
-          {/* Vehicle Type Selection */}
+          {/* Vehicle Info - Only Motorbike Available */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20">
-            <h2 className="text-white font-semibold text-lg mb-4">Select Vehicle Type</h2>
-            <p className="text-white/70 text-sm mb-4">
-              Choose a vehicle based on your parcel size and type. Select the appropriate option for the best service.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {vehicleOptions.map((vehicle) => (
-                <button
-                  key={vehicle.id}
-                  onClick={() => setSelectedVehicle(vehicle.id)}
-                  className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                    selectedVehicle === vehicle.id
-                      ? 'border-nexryde-yellow bg-nexryde-yellow/20'
-                      : 'border-white/20 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center text-center">
-                    <div className={`mb-3 ${selectedVehicle === vehicle.id ? 'text-nexryde-yellow' : 'text-white/70'}`}>
-                      {vehicle.icon}
-                    </div>
-                    <h3 className="text-white font-semibold mb-1">{vehicle.name}</h3>
-                    <p className="text-white/60 text-xs mb-2">{vehicle.description}</p>
-                    <p className="text-nexryde-yellow text-sm font-medium">
-                      ${vehicle.pricePerKm.toFixed(2)}/km
-                    </p>
-                  </div>
-                </button>
-              ))}
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-nexryde-yellow/20 rounded-full flex items-center justify-center">
+                <Bike className="w-8 h-8 text-nexryde-yellow" />
+              </div>
+              <div>
+                <h2 className="text-white font-semibold text-lg mb-1">Motorbike Delivery</h2>
+                <p className="text-white/70 text-sm">Fast and efficient parcel delivery</p>
+                <p className="text-nexryde-yellow text-sm font-medium mt-1">
+                  ${MOTORBIKE_PRICE_PER_KM.toFixed(2)}/km • Min: ${MOTORBIKE_MIN_PRICE.toFixed(2)}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -715,19 +748,15 @@ export default function ParcelPage() {
               className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20"
             >
               <div className="space-y-4">
-                {selectedVehicle && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/70">Vehicle:</span>
-                    <span className="text-white font-semibold">
-                      {vehicleOptions.find(v => v.id === selectedVehicle)?.name}
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-white/70">Vehicle:</span>
+                  <span className="text-white font-semibold">Motorbike</span>
+                </div>
                 <div className="flex justify-between items-center">
                   <span className="text-white/70">Distance:</span>
                   <span className="text-white font-semibold">{distance.toFixed(2)} km</span>
                 </div>
-                {selectedVehicle && suggestedPrice > 0 && (
+                {suggestedPrice > 0 && (
                   <div className="pt-4 border-t border-white/20">
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-white font-medium">Total Price:</span>
@@ -737,16 +766,30 @@ export default function ParcelPage() {
                 )}
                 <button
                   onClick={handleConfirmBooking}
-                  disabled={!selectedVehicle || !fromCoords || !toCoords}
+                  disabled={isBooking || !fromCoords || !toCoords || distance === 0 || !!activeParcel}
                   className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirm Booking
+                  {activeParcel ? 'You have an active parcel request' : isBooking ? 'Creating Request...' : 'Confirm Booking'}
                 </button>
               </div>
             </motion.div>
           )}
         </motion.div>
       </div>
+
+      {/* Active Parcel Modal */}
+      {/* Active Parcel Modal - Always show when there's an active parcel, non-closable */}
+      {showActiveParcelModal && activeParcel && (
+        <ActiveParcelModal
+          activeParcel={activeParcel}
+          onClose={() => {}} // Disable close - modal should not be closable
+          onCancel={() => {
+            setActiveParcel(null);
+            setShowActiveParcelModal(false);
+            // Polling will continue via useEffect
+          }}
+        />
+      )}
     </div>
   );
 }

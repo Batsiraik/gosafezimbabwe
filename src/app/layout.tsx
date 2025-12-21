@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ONEGO - Your Go to App for Everything",
-  description: "Book rides, get around town, and travel safely with ONEGO",
+  title: "GO SAFE - Your Go to App for Everything",
+  description: "Book rides, get around town, and travel safely with GO SAFE",
 };
 
 export default function RootLayout({

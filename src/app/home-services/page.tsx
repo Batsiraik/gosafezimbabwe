@@ -1,51 +1,119 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Wrench, Zap, Hammer, Sprout, Dog, Shield, Square, Phone, Monitor, Sparkles, Scissors, DollarSign } from 'lucide-react';
+import { ArrowLeft, MapPin, DollarSign, Search, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getServiceIcon } from '@/lib/utils/service-icons';
+import ActiveServiceModal from '@/components/ActiveServiceModal';
 
 interface Service {
   id: string;
   name: string;
-  icon: React.ReactNode;
+  iconName: string;
+  isActive: boolean;
 }
 
-const services: Service[] = [
-  { id: 'plumber', name: 'Plumber', icon: <Wrench className="w-6 h-6" /> },
-  { id: 'electrician', name: 'Electrician', icon: <Zap className="w-6 h-6" /> },
-  { id: 'builder', name: 'Builder', icon: <Hammer className="w-6 h-6" /> },
-  { id: 'gardener', name: 'Gardener', icon: <Sprout className="w-6 h-6" /> },
-  { id: 'dog-walker', name: 'Dog Walker', icon: <Dog className="w-6 h-6" /> },
-  { id: 'security', name: 'Security', icon: <Shield className="w-6 h-6" /> },
-  { id: 'carpenter', name: 'Carpenter', icon: <Square className="w-6 h-6" /> },
-  { id: 'phone-repair', name: 'Phone Repair', icon: <Phone className="w-6 h-6" /> },
-  { id: 'computer-repair', name: 'Computer Repair', icon: <Monitor className="w-6 h-6" /> },
-  { id: 'cleaners', name: 'Cleaners', icon: <Sparkles className="w-6 h-6" /> },
-  { id: 'grass-cutter', name: 'Grass Cutter', icon: <Scissors className="w-6 h-6" /> },
-];
+interface ActiveServiceRequest {
+  id: string;
+  serviceId: string;
+  jobDescription: string;
+  budget: number;
+  location: string;
+  status: string;
+  createdAt: string;
+  service: Service;
+}
 
 export default function HomeServicesPage() {
   const router = useRouter();
+  const [services, setServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [jobDescription, setJobDescription] = useState<string>('');
   const [budget, setBudget] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeRequest, setActiveRequest] = useState<ActiveServiceRequest | null>(null);
+  const [showActiveServiceModal, setShowActiveServiceModal] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch services from API
+  const fetchServices = useCallback(async () => {
+    try {
+      setLoadingServices(true);
+      const response = await fetch('/api/services');
+      if (!response.ok) {
+        throw new Error('Failed to fetch services');
+      }
+      const data = await response.json();
+      setServices(data.services || []);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      toast.error('Failed to load services. Please refresh the page.');
+    } finally {
+      setLoadingServices(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchServices();
+    checkActiveRequest();
+  }, [fetchServices]);
+
+  // Check for active service request
+  const checkActiveRequest = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/services/requests/active', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.request) {
+          setActiveRequest(data.request);
+        } else {
+          setActiveRequest(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active service request:', error);
+    }
+  }, []);
+
+  // Check for active service request on mount and poll continuously
+  useEffect(() => {
+    // Check immediately on mount
+    checkActiveRequest();
+    
+    // Poll every 3 seconds
+    const interval = setInterval(() => {
+      checkActiveRequest();
+    }, 3000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Update job description prefix when service changes
   useEffect(() => {
     if (selectedService) {
-      const serviceName = services.find(s => s.id === selectedService)?.name.toLowerCase() || '';
+      const service = services.find(s => s.id === selectedService);
+      const serviceName = service?.name.toLowerCase() || '';
       setJobDescription(`I am looking for a ${serviceName} to `);
     } else {
       setJobDescription('');
     }
-  }, [selectedService]);
+  }, [selectedService, services]);
 
   // Handle location input with autocomplete
   const handleLocationInput = async (value: string) => {
@@ -121,12 +189,13 @@ export default function HomeServicesPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedService) {
       toast.error('Please select a service');
       return;
     }
-    if (!jobDescription || jobDescription.trim() === `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase()} to `) {
+    const service = services.find(s => s.id === selectedService);
+    if (!jobDescription || jobDescription.trim() === `I am looking for a ${service?.name.toLowerCase()} to `) {
       toast.error('Please provide job description');
       return;
     }
@@ -139,17 +208,51 @@ export default function HomeServicesPage() {
       return;
     }
 
-    // TODO: Handle submission (backend integration)
-    const requestData = {
-      service: selectedService,
-      serviceName: services.find(s => s.id === selectedService)?.name,
-      jobDescription,
-      budget,
-      location,
-    };
+    try {
+      setIsSubmitting(true);
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) {
+        toast.error('Please login to continue');
+        router.push('/auth/login');
+        return;
+      }
 
-    console.log('Home service request:', requestData);
-    toast.success('Request submitted! We will find you a verified professional.');
+      const response = await fetch('/api/services/requests/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          serviceId: selectedService,
+          jobDescription: jobDescription.trim(),
+          budget,
+          location,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit request');
+      }
+
+      toast.success('Request submitted! We will find you a verified professional.');
+      
+      // Reset form
+      setSelectedService(null);
+      setJobDescription('');
+      setBudget('');
+      setLocation('');
+      
+      // Check for active request
+      await checkActiveRequest();
+    } catch (error: any) {
+      console.error('Error submitting service request:', error);
+      toast.error(error.message || 'Failed to submit request. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Cleanup
@@ -186,33 +289,99 @@ export default function HomeServicesPage() {
           transition={{ duration: 0.6 }}
           className="space-y-6"
         >
-          {/* Service Selection */}
+          {/* Active Request Display - Show at top if exists */}
+          {activeRequest && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 shadow-xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-yellow-400/20 rounded-full flex items-center justify-center">
+                    <Search className="w-5 h-5 text-yellow-400 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold">Active Service Request</h3>
+                    <p className="text-white/70 text-sm">
+                      {activeRequest.service.name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center space-x-2 text-white/70 text-sm">
+                  <Clock className="w-4 h-4" />
+                  <span>Requested {new Date(activeRequest.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="text-white/70 text-sm">
+                  Budget: ${activeRequest.budget.toLocaleString()}
+                </div>
+                <div className="text-white/70 text-sm">
+                  Location: {activeRequest.location}
+                </div>
+                <div className={`text-sm font-medium ${
+                  activeRequest.status === 'searching' ? 'text-yellow-400' :
+                  activeRequest.status === 'accepted' ? 'text-blue-400' :
+                  activeRequest.status === 'in_progress' ? 'text-green-400' :
+                  'text-white/70'
+                }`}>
+                  {activeRequest.status === 'searching' && 'Searching for service providers...'}
+                  {activeRequest.status === 'pending' && 'Waiting for service provider to accept'}
+                  {activeRequest.status === 'accepted' && 'Service provider is on the way'}
+                  {activeRequest.status === 'in_progress' && 'Service in progress'}
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowActiveServiceModal(true)}
+                  className="flex-1 bg-nexryde-yellow text-white py-2 px-4 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200"
+                >
+                  View Details
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Service Selection - Only show if no active request */}
+          {!activeRequest && (
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20">
             <h2 className="text-white font-semibold text-lg mb-4">Select Service</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {services.map((service) => (
-                <button
-                  key={service.id}
-                  onClick={() => setSelectedService(service.id)}
-                  className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                    selectedService === service.id
-                      ? 'border-nexryde-yellow bg-nexryde-yellow/20'
-                      : 'border-white/20 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center text-center">
-                    <div className={`mb-2 ${selectedService === service.id ? 'text-nexryde-yellow' : 'text-white/70'}`}>
-                      {service.icon}
+            {loadingServices ? (
+              <div className="text-center py-8">
+                <p className="text-white/70">Loading services...</p>
+              </div>
+            ) : services.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-white/70">No services available at the moment.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => setSelectedService(service.id)}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                      selectedService === service.id
+                        ? 'border-nexryde-yellow bg-nexryde-yellow/20'
+                        : 'border-white/20 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className={`mb-2 ${selectedService === service.id ? 'text-nexryde-yellow' : 'text-white/70'}`}>
+                        {getServiceIcon(service.iconName, "w-6 h-6")}
+                      </div>
+                      <span className="text-white text-sm font-medium">{service.name}</span>
                     </div>
-                    <span className="text-white text-sm font-medium">{service.name}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+          )}
 
-          {/* Job Description */}
-          {selectedService && (
+          {/* Job Description - Only show if no active request */}
+          {!activeRequest && selectedService && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -232,8 +401,8 @@ export default function HomeServicesPage() {
             </motion.div>
           )}
 
-          {/* Budget */}
-          {selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase()} to ` && (
+          {/* Budget - Only show if no active request */}
+          {!activeRequest && selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase() || ''} to ` && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -262,8 +431,8 @@ export default function HomeServicesPage() {
             </motion.div>
           )}
 
-          {/* Location */}
-          {selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase()} to ` && budget && (
+          {/* Location - Only show if no active request */}
+          {!activeRequest && selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase() || ''} to ` && budget && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -314,8 +483,8 @@ export default function HomeServicesPage() {
             </motion.div>
           )}
 
-          {/* Info Message */}
-          {selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase()} to ` && budget && location && (
+          {/* Info Message - Only show if no active request */}
+          {!activeRequest && selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase() || ''} to ` && budget && location && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -328,8 +497,8 @@ export default function HomeServicesPage() {
             </motion.div>
           )}
 
-          {/* Submit Button */}
-          {selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase()} to ` && budget && location && (
+          {/* Submit Button - Only show if no active request */}
+          {!activeRequest && selectedService && jobDescription.trim() !== `I am looking for a ${services.find(s => s.id === selectedService)?.name.toLowerCase() || ''} to ` && budget && location && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -337,14 +506,28 @@ export default function HomeServicesPage() {
             >
               <button
                 onClick={handleSubmit}
-                className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200"
+                disabled={isSubmitting}
+                className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Request
+                {isSubmitting ? 'Submitting...' : 'Submit Request'}
               </button>
             </motion.div>
           )}
         </motion.div>
       </div>
+
+      {/* Active Service Modal */}
+      {showActiveServiceModal && activeRequest && (
+        <ActiveServiceModal
+          activeRequest={activeRequest}
+          onClose={() => setShowActiveServiceModal(false)}
+          onCancel={() => {
+            setActiveRequest(null);
+            setShowActiveServiceModal(false);
+            checkActiveRequest();
+          }}
+        />
+      )}
     </div>
   );
 }

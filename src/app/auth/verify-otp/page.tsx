@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function VerifyOTPPage() {
   const [otp, setOtp] = useState('');
@@ -15,23 +16,43 @@ export default function VerifyOTPPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock OTP verification - backend will be implemented later
-    setTimeout(() => {
-      toast.success('Account verified successfully! (Mock)');
+    try {
       const phone = localStorage.getItem('temp_phone') || '';
-      const mockUser = {
-        id: '1',
-        fullName: 'John Doe',
-        phone: phone,
-        city: 'Harare',
-        isActive: true
-      };
-      localStorage.setItem('nexryde_token', 'mock-token');
-      localStorage.setItem('nexryde_user', JSON.stringify(mockUser));
+      
+      if (!phone) {
+        toast.error('Phone number not found. Please register again.');
+        router.push('/auth/register');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, otp }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'OTP verification failed');
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success('Account verified successfully!');
+      localStorage.setItem('nexryde_token', data.token);
+      localStorage.setItem('nexryde_user', JSON.stringify(data.user));
       localStorage.removeItem('temp_phone');
       setIsLoading(false);
       router.push('/dashboard');
-    }, 1000);
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      toast.error('An error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -56,9 +77,9 @@ export default function VerifyOTPPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center"
+              className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
             >
-              <span className="text-2xl">🚗</span>
+              <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" priority />
             </motion.div>
             <h1 className="text-3xl font-bold text-white mb-2">Verify OTP</h1>
             <p className="text-white/80">Enter the 6-digit code sent to your phone</p>
@@ -80,6 +101,7 @@ export default function VerifyOTPPage() {
                   maxLength={6}
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent text-center text-2xl tracking-widest"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>

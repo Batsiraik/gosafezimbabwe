@@ -1,0 +1,420 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String   @id @default(cuid())
+  fullName          String
+  phone             String   @unique
+  password          String
+  profilePictureUrl String?
+  idDocumentUrl     String?
+  licenseUrl        String?
+  isVerified        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  rideRequests      RideRequest[]
+  parcelRequests    ParcelRequest[]
+  cityToCityRequests CityToCityRequest[]
+  serviceRequests   ServiceRequest[]
+  busBookings       BusBooking[]
+  driverProfile     Driver?
+  serviceProviderProfile ServiceProvider?
+  busProviderProfile BusProvider?
+  ratingsGiven      Rating[] @relation("RaterRatings") // Ratings given by this user
+  ratingsReceived   Rating[] @relation("RateeRatings") // Ratings received by this user
+
+  @@map("users")
+}
+
+model RideRequest {
+  id                    String   @id @default(cuid())
+  userId                String
+  pickupLat             Float
+  pickupLng             Float
+  pickupAddress         String
+  destinationLat        Float
+  destinationLng        Float
+  destinationAddress    String
+  distance              Float    // in kilometers
+  price                 Float    // original price requested by user
+  isRoundTrip           Boolean  @default(false)
+  status                String   @default("pending") // pending, searching, bid_received, accepted, in_progress, completed, cancelled
+  driverId              String?  // Final accepted driver
+  finalPrice            Float?   // Final agreed price
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver                Driver?   @relation("DriverRides", fields: [driverId], references: [id])
+  bids                  RideBid[]
+  ratings               Rating[] @relation("RideRatings")
+
+  @@map("ride_requests")
+  @@index([userId])
+  @@index([status])
+  @@index([driverId])
+}
+
+model RideBid {
+  id                    String   @id @default(cuid())
+  rideRequestId         String
+  driverId              String
+  bidPrice              Float    // Price bid by driver
+  status                String   @default("pending") // pending, accepted, rejected
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  rideRequest           RideRequest @relation(fields: [rideRequestId], references: [id], onDelete: Cascade)
+  driver                Driver      @relation("DriverBids", fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("ride_bids")
+  @@index([rideRequestId])
+  @@index([driverId])
+  @@index([status])
+  @@unique([rideRequestId, driverId]) // One bid per driver per ride
+}
+
+model ParcelRequest {
+  id                    String   @id @default(cuid())
+  userId                String
+  vehicleType           String   @default("motorbike") // Only motorbike now
+  pickupLat             Float
+  pickupLng             Float
+  pickupAddress         String
+  deliveryLat            Float
+  deliveryLng            Float
+  deliveryAddress       String
+  distance              Float    // in kilometers
+  price                 Float    // original price requested by user
+  finalPrice            Float?   // final agreed price after bid
+  status                String   @default("pending") // pending, searching, bid_received, accepted, in_progress, completed, cancelled
+  driverId              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driver                Driver?  @relation("ParcelDriverDeliveries", fields: [driverId], references: [id])
+  bids                  ParcelBid[]
+  ratings               Rating[] @relation("ParcelRatings")
+
+  @@map("parcel_requests")
+  @@index([userId])
+  @@index([status])
+  @@index([driverId])
+}
+
+model ParcelBid {
+  id                    String   @id @default(cuid())
+  parcelRequestId       String
+  driverId              String
+  bidPrice              Float    // Price bid by driver
+  status                String   @default("pending") // pending, accepted, rejected
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  parcelRequest         ParcelRequest @relation(fields: [parcelRequestId], references: [id], onDelete: Cascade)
+  driver                Driver        @relation("ParcelDriverBids", fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("parcel_bids")
+  @@index([parcelRequestId])
+  @@index([driverId])
+  @@index([status])
+  @@unique([parcelRequestId, driverId]) // One bid per driver per parcel
+}
+
+model City {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  country     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fromCityRequests  CityToCityRequest[] @relation("FromCity")
+  toCityRequests    CityToCityRequest[] @relation("ToCity")
+  busFromSchedules  BusSchedule[]      @relation("BusFromCity")
+  busToSchedules    BusSchedule[]      @relation("BusToCity")
+
+  @@map("cities")
+}
+
+model CityToCityRequest {
+  id                    String   @id @default(cuid())
+  userId                String
+  userType              String   // has-car or needs-car
+  fromCityId            String
+  toCityId              String
+  travelDate            DateTime
+  // For users with car: price per passenger
+  pricePerPassenger     Float?
+  // For users without car: what they're willing to pay
+  willingToPay          Float?
+  // For users with car
+  numberOfSeats         Int?     // How many passengers they want
+  maxBags               Int?
+  // For users without car
+  neededSeats           Int?
+  userBags              Int?
+  note                  String?  // Optional note from user
+  status                String   @default("searching") // searching, matched, expired, cancelled
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromCity              City     @relation("FromCity", fields: [fromCityId], references: [id])
+  toCity                City     @relation("ToCity", fields: [toCityId], references: [id])
+  driverMatches         CityToCityMatch[] @relation("DriverMatches")
+  passengerMatches      CityToCityMatch[] @relation("PassengerMatches")
+
+  @@map("city_to_city_requests")
+  @@index([userId])
+  @@index([status])
+  @@index([fromCityId, toCityId])
+  @@index([travelDate])
+  @@index([userType])
+}
+
+model CityToCityMatch {
+  id                    String   @id @default(cuid())
+  driverRequestId       String   // The driver's request
+  passengerRequestId    String   // The passenger's request
+  status                String   @default("active") // active, cancelled, completed
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  driverRequest         CityToCityRequest @relation("DriverMatches", fields: [driverRequestId], references: [id], onDelete: Cascade)
+  passengerRequest      CityToCityRequest @relation("PassengerMatches", fields: [passengerRequestId], references: [id], onDelete: Cascade)
+
+  @@map("city_to_city_matches")
+  @@index([driverRequestId])
+  @@index([passengerRequestId])
+  @@index([status])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  iconName    String   // Name of the icon from lucide-react (e.g., "Wrench", "Zap")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  serviceRequests ServiceRequest[]
+  serviceProviders ServiceProviderService[] // Many-to-many with ServiceProvider
+
+  @@map("services")
+  @@index([isActive])
+}
+
+model ServiceRequest {
+  id              String   @id @default(cuid())
+  userId          String
+  serviceId       String
+  jobDescription String
+  budget          Float    // Original budget requested by user
+  finalPrice      Float?   // Final agreed price after bid acceptance
+  location        String
+  status          String   @default("pending") // pending, searching, bid_received, accepted, in_progress, completed, cancelled
+  providerId      String?  // Will be set when matched with a service provider
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  provider        ServiceProvider? @relation("ProviderServiceRequests", fields: [providerId], references: [id])
+  bids            ServiceBid[]
+  ratings         Rating[] @relation("ServiceRatings")
+
+  @@map("service_requests")
+  @@index([userId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([providerId])
+}
+
+model ServiceProvider {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  nationalIdUrl     String?  // National ID image
+  selfieUrl         String?  // Recent selfie
+  isVerified        Boolean  @default(false) // Admin verification
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services          ServiceProviderService[] // Many-to-many with Service
+  acceptedRequests  ServiceRequest[] @relation("ProviderServiceRequests")
+  bids              ServiceBid[]
+
+  @@map("service_providers")
+  @@index([userId])
+  @@index([isVerified])
+}
+
+model ServiceProviderService {
+  id                String   @id @default(cuid())
+  serviceProviderId String
+  serviceId         String
+
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+  service           Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@map("service_provider_services")
+  @@index([serviceProviderId])
+  @@index([serviceId])
+  @@unique([serviceProviderId, serviceId]) // One entry per provider per service
+}
+
+model ServiceBid {
+  id                String   @id @default(cuid())
+  serviceRequestId String
+  serviceProviderId String
+  bidPrice          Float    // Price bid by provider
+  message           String?  // Optional message from provider
+  status            String   @default("pending") // pending, accepted, rejected
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  serviceRequest    ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  serviceProvider   ServiceProvider @relation(fields: [serviceProviderId], references: [id], onDelete: Cascade)
+
+  @@map("service_bids")
+  @@index([serviceRequestId])
+  @@index([serviceProviderId])
+  @@index([status])
+  @@unique([serviceRequestId, serviceProviderId]) // One bid per provider per service request
+}
+
+model BusSchedule {
+  id              String   @id @default(cuid())
+  busProviderId   String?  // Bus provider who owns this schedule (optional for existing schedules)
+  fromCityId      String
+  toCityId        String
+  departureTime   String   // Time in HH:MM format (e.g., "09:00")
+  arrivalTime     String?  // Optional arrival time
+  station         String   // Bus station/terminal name
+  price           Float    // Price per ticket
+  totalSeats      Int      @default(50) // Total seats on the bus
+  availableSeats  Int      // Available seats (will be calculated based on bookings)
+  conductorPhone  String?  // Phone number of the bus conductor/driver
+  isActive        Boolean  @default(true)
+  // Days of week this schedule runs (comma-separated: "monday,tuesday,wednesday" or "daily")
+  // For now, we'll use "daily" for all schedules, later can be more specific
+  daysOfWeek      String   @default("daily") // daily, monday, tuesday, etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  busProvider     BusProvider? @relation(fields: [busProviderId], references: [id], onDelete: Cascade)
+  fromCity        City     @relation("BusFromCity", fields: [fromCityId], references: [id])
+  toCity          City     @relation("BusToCity", fields: [toCityId], references: [id])
+  bookings        BusBooking[]
+
+  @@map("bus_schedules")
+  @@index([busProviderId])
+  @@index([fromCityId, toCityId])
+  @@index([isActive])
+  @@index([departureTime])
+}
+
+model BusProvider {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  nationalIdUrl     String?  // National ID image
+  selfieUrl         String?  // Recent selfie
+  isVerified        Boolean  @default(false) // Admin verification
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules         BusSchedule[]
+
+  @@map("bus_providers")
+  @@index([userId])
+  @@index([isVerified])
+}
+
+model BusBooking {
+  id              String   @id @default(cuid())
+  userId          String
+  busScheduleId   String
+  travelDate      DateTime // The actual date of travel
+  numberOfTickets Int
+  totalPrice      Float
+  status          String   @default("pending") // pending, confirmed, cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  busSchedule     BusSchedule @relation(fields: [busScheduleId], references: [id], onDelete: Cascade)
+
+  @@map("bus_bookings")
+  @@index([userId])
+  @@index([busScheduleId])
+  @@index([travelDate])
+  @@index([status])
+}
+
+model Driver {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  serviceType       String   // taxi, parcel, bus, etc.
+  licenseNumber     String?
+  licenseUrl        String?  // Driver's license image
+  carPictureUrl     String?  // Car picture with registration number
+  carRegistration   String?  // Car registration number
+  isVerified        Boolean  @default(false) // Admin verification
+  currentLat        Float?   // Current location latitude
+  currentLng        Float?   // Current location longitude
+  isOnline          Boolean  @default(false) // Whether driver is available
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  acceptedRides     RideRequest[] @relation("DriverRides")
+  bids              RideBid[] @relation("DriverBids")
+  acceptedParcels   ParcelRequest[] @relation("ParcelDriverDeliveries")
+  parcelBids        ParcelBid[] @relation("ParcelDriverBids")
+
+  @@map("drivers")
+  @@index([userId])
+  @@index([serviceType])
+  @@index([isVerified])
+  @@index([isOnline])
+}
+
+model Rating {
+  id                String   @id @default(cuid())
+  rideRequestId     String?
+  parcelRequestId   String?
+  serviceRequestId  String?
+  raterId           String   // User who gave the rating (can be driver, passenger, or provider)
+  rateeId           String   // User who received the rating (can be driver, passenger, or provider)
+  raterType         String   // "driver", "passenger", or "provider" - who is giving the rating
+  rateeType         String   // "driver", "passenger", or "provider" - who is receiving the rating
+  rating            Int      // 1-5 stars
+  review            String?  // Optional text review
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  rideRequest       RideRequest? @relation("RideRatings", fields: [rideRequestId], references: [id], onDelete: Cascade)
+  parcelRequest     ParcelRequest? @relation("ParcelRatings", fields: [parcelRequestId], references: [id], onDelete: Cascade)
+  serviceRequest    ServiceRequest? @relation("ServiceRatings", fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  rater             User       @relation("RaterRatings", fields: [raterId], references: [id], onDelete: Cascade)
+  ratee             User       @relation("RateeRatings", fields: [rateeId], references: [id], onDelete: Cascade)
+
+  @@map("ratings")
+  @@index([rideRequestId])
+  @@index([parcelRequestId])
+  @@index([serviceRequestId])
+  @@index([raterId])
+  @@index([rateeId])
+}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Car, Bike, MapPin, GraduationCap, Bus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -37,10 +38,10 @@ export default function Home() {
         <div className="max-w-md w-full">
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span className="text-2xl">🚗</span>
+              <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" />
               </div>
-              <h1 className="text-3xl font-bold text-white mb-2">ONEGO</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">GO SAFE</h1>
               <p className="text-white/80">Your go to App for Everything</p>
             </div>
           </div>
@@ -64,11 +65,11 @@ export default function Home() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center"
+                className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
               >
-                <span className="text-2xl">🚗</span>
+                <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" />
               </motion.div>
-              <h1 className="text-3xl font-bold text-white mb-2">ONEGO</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">GO SAFE</h1>
               <p className="text-white/80">Your go to App for Everything.</p>
             </div>
 

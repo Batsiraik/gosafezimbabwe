@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Navigation, Plus, Minus, RotateCcw } from 'lucide-react';
 import { GoogleMap, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import toast from 'react-hot-toast';
+import ActiveRideModal from '@/components/ActiveRideModal';
 
 const libraries: ("places" | "drawing" | "geometry" | "localContext" | "visualization")[] = ['places', 'geometry'];
 
@@ -33,8 +34,15 @@ export default function RidePage() {
   const [adjustedPrice, setAdjustedPrice] = useState<number>(0);
   const [routePath, setRoutePath] = useState<google.maps.LatLngLiteral[]>([]);
   const [mapCenter, setMapCenter] = useState(defaultCenter);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Don't block on GPS - show map immediately
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [activeRide, setActiveRide] = useState<any>(null);
+  const [showActiveRideModal, setShowActiveRideModal] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  const [showGpsTips, setShowGpsTips] = useState(false);
+  const [accuracyStatus, setAccuracyStatus] = useState<string>('');
+  const activeRidePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const retryCountRef = useRef(0);
   
   const mapRef = useRef<google.maps.Map | null>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
@@ -46,12 +54,51 @@ export default function RidePage() {
   const watchIdRef = useRef<number | null>(null);
   const locationLockRef = useRef(false);
   const gpsFallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const accuracyCircleRef = useRef<google.maps.Circle | null>(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: libraries as any,
   });
+
+  // Location verification function
+  const verifyLocationAccuracy = useCallback(async (coords: { lat: number; lng: number }, accuracy: number) => {
+    // If accuracy is good, no need to verify
+    if (accuracy <= 50) return true;
+    
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) return false;
+      
+      // Get address from coordinates
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coords.lat},${coords.lng}&key=${apiKey}&region=ZW`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          const address = data.results[0].formatted_address;
+          
+          // Check if address looks reasonable (not in ocean, etc.)
+          const isReasonable = !address.includes("Unnamed Road") && 
+                              !address.toLowerCase().includes("ocean") &&
+                              address.includes(",");
+          
+          if (!isReasonable) {
+            console.warn('Location appears inaccurate:', address);
+            return false;
+          }
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+    }
+    
+    return false;
+  }, []);
 
   // Reverse geocoding to get human-readable address from coordinates
   const reverseGeocode = useCallback(async (coords: { lat: number; lng: number }) => {
@@ -72,9 +119,13 @@ export default function RidePage() {
           setCurrentLocationAddress(data.results[0].formatted_address);
         } else {
           console.warn('No address found for this location');
+          // Fallback to a readable format if geocoding fails
+          setCurrentLocationAddress(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
         }
       } else {
         console.error('Geocoding API error:', await response.text());
+        // Fallback to coordinates in readable format if API fails
+        setCurrentLocationAddress(`Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
       }
     } catch (error) {
       console.error('Reverse geocode error:', error);
@@ -89,6 +140,8 @@ export default function RidePage() {
       const defaultLoc = { lat: -17.8292, lng: 31.0522 };
       setCurrentLocation(defaultLoc);
       setMapCenter(defaultLoc);
+      // Get address for default location
+      reverseGeocode(defaultLoc);
       return;
     }
 
@@ -108,114 +161,226 @@ export default function RidePage() {
       gpsFallbackTimerRef.current = null;
     }
 
-    const GOOD_ACCURACY_METERS = 60;      // phone outdoors usually 5-30m
-    const OK_ACCURACY_METERS = 150;       // decent for city pickup
-    const MAX_WAIT_MS = 20000;
+    // Enhanced accuracy thresholds
+    const EXCELLENT_ACCURACY = 20;    // < 20m - Very accurate (outdoors with clear sky)
+    const GOOD_ACCURACY = 50;         // < 50m - Good for ride pickup
+    const ACCEPTABLE_ACCURACY = 100;  // < 100m - Acceptable
+    const MINIMUM_ACCURACY = 150;     // Max we'll accept for ride booking
+    const MAX_WAIT_MS = 30000;        // Wait up to 30 seconds for good GPS
 
     let bestPos: GeolocationPosition | null = null;
+    let accuracyImprovements = 0;
+    
+    // Update accuracy status in UI
+    const updateAccuracyStatus = (status: string, accuracy?: number) => {
+      setAccuracyStatus(status);
+      if (accuracy !== undefined) {
+        console.log(`GPS Status: ${status} (${Math.round(accuracy)}m)`);
+      }
+    };
 
     const acceptPosition = (pos: GeolocationPosition, final = false) => {
       const { latitude, longitude, accuracy } = pos.coords;
-
       const loc = { lat: latitude, lng: longitude };
+      
       setCurrentLocation(loc);
       setMapCenter(loc);
       setGpsAccuracy(typeof accuracy === 'number' ? accuracy : null);
 
+      // Always fetch address
+      reverseGeocode(loc);
+
       if (final) {
-        reverseGeocode(loc); // Fetch and set the address
+        // Verify location accuracy if accuracy is available (async, don't block)
+        if (typeof accuracy === 'number' && accuracy > 50) {
+          verifyLocationAccuracy(loc, accuracy).then((isVerified) => {
+            if (!isVerified) {
+              toast('⚠️ Location may be inaccurate. Please verify on map or type address manually.', {
+                icon: '⚠️',
+                duration: 5000,
+              });
+            }
+          }).catch(() => {
+            // Silently fail verification
+          });
+        }
         setIsLoading(false);
         if (watchIdRef.current !== null) {
           navigator.geolocation.clearWatch(watchIdRef.current);
           watchIdRef.current = null;
         }
+        
+        // Show accuracy toast
+        if (accuracy && accuracy <= EXCELLENT_ACCURACY) {
+          toast.success(`📍 Excellent accuracy: ${Math.round(accuracy)}m`);
+        } else if (accuracy && accuracy <= GOOD_ACCURACY) {
+          toast.success(`📍 Good accuracy: ${Math.round(accuracy)}m`);
+        } else if (accuracy) {
+          toast(`📍 Location accuracy: ${Math.round(accuracy)}m. Drag pin if needed.`, { icon: '⚠️' });
+        }
       }
     };
 
     const onUpdate = (pos: GeolocationPosition) => {
-      const acc = pos.coords.accuracy;
+      const accuracy = pos.coords.accuracy;
+      const isNewBest = !bestPos || (typeof accuracy === 'number' && accuracy < bestPos.coords.accuracy);
 
-      // keep best
-      if (!bestPos || (typeof acc === 'number' && acc < bestPos.coords.accuracy)) {
+      // Store best position
+      if (isNewBest) {
         bestPos = pos;
+        accuracyImprovements++;
+        
+        // Show accuracy improvements
+        if (accuracy) {
+          if (accuracy <= EXCELLENT_ACCURACY) {
+            updateAccuracyStatus('Excellent GPS signal', accuracy);
+          } else if (accuracy <= GOOD_ACCURACY) {
+            updateAccuracyStatus('Good GPS signal', accuracy);
+          } else if (accuracy <= ACCEPTABLE_ACCURACY) {
+            updateAccuracyStatus('Moderate accuracy', accuracy);
+          } else {
+            updateAccuracyStatus('Low accuracy', accuracy);
+          }
+        }
       }
 
-      // Only update UI live if it's not totally trash
-      if (typeof acc === 'number' && acc <= 2000) {
-        acceptPosition(pos, false);
-      }
-
-      // lock only if good enough
-      if (!locationLockRef.current && typeof acc === 'number' && acc <= GOOD_ACCURACY_METERS) {
-        locationLockRef.current = true;
-        toast.success(`Accurate location found (${Math.round(acc)}m)`);
-        acceptPosition(pos, true);
+      // Only accept decent positions for live updates
+      if (typeof accuracy === 'number') {
+        // Show accuracy in UI
+        setGpsAccuracy(accuracy);
+        
+        // Only update map for positions with good accuracy (60m max for live updates)
+        if (accuracy <= GOOD_ACCURACY) {
+          acceptPosition(pos, false);
+        }
+        
+        // Lock if we get excellent or good accuracy
+        if (!locationLockRef.current) {
+          if (accuracy <= EXCELLENT_ACCURACY) {
+            locationLockRef.current = true;
+            updateAccuracyStatus('Location locked - Excellent', accuracy);
+            acceptPosition(pos, true);
+          } else if (accuracy <= GOOD_ACCURACY && accuracyImprovements >= 3) {
+            // Wait for at least 3 improvements before locking with good accuracy
+            locationLockRef.current = true;
+            updateAccuracyStatus('Location locked - Good', accuracy);
+            acceptPosition(pos, true);
+          }
+        }
       }
     };
 
     const onError = (error: GeolocationPositionError) => {
-      console.error('Error getting location:', error);
-
-      let msg = 'Could not get your location. ';
+      console.error('GPS Error:', error);
+      
+      let msg = '';
       switch (error.code) {
         case error.PERMISSION_DENIED:
-          msg += 'Please allow location access (Precise location if on Android).';
+          msg = 'Location access denied. Please enable location services in browser settings.';
           break;
         case error.POSITION_UNAVAILABLE:
-          msg += 'Location information is unavailable.';
+          msg = 'Location unavailable. Please check your GPS/WiFi and try again.';
           break;
         case error.TIMEOUT:
-          msg += 'Location request timed out.';
+          msg = 'GPS timeout. Taking longer than expected. Try moving to an open area.';
           break;
         default:
-          msg += 'An unknown error occurred.';
+          msg = 'GPS error. Please try again.';
       }
-
+      
       toast.error(msg);
       setIsLoading(false);
-
+      
+      // Fallback to default location
       const defaultLoc = { lat: -17.8292, lng: 31.0522 };
       setCurrentLocation(defaultLoc);
       setMapCenter(defaultLoc);
-      reverseGeocode(defaultLoc); // Set address for default location
-
+      reverseGeocode(defaultLoc);
+      
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      
+      // Retry logic
+      const MAX_RETRIES = 2;
+      if (retryCountRef.current < MAX_RETRIES) {
+        retryCountRef.current++;
+        toast(`Retrying GPS (attempt ${retryCountRef.current}/${MAX_RETRIES})...`);
+        setTimeout(() => {
+          getCurrentLocation();
+        }, 2000);
+      } else {
+        retryCountRef.current = 0; // Reset for next time
+      }
     };
 
-    // 1) fast first hit (sometimes decent)
-    navigator.geolocation.getCurrentPosition(onUpdate, onError, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 8000,
-    });
+    // Show initial status
+    updateAccuracyStatus('Starting GPS...');
+    retryCountRef.current = 0; // Reset retry counter
 
-    // 2) refine over time
+    // 1) Try quick first fix (cached location)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const acc = pos.coords.accuracy;
+        if (acc && acc <= ACCEPTABLE_ACCURACY) {
+          updateAccuracyStatus('Using cached location', acc);
+          acceptPosition(pos, false);
+        }
+      },
+      null,
+      {
+        enableHighAccuracy: false,
+        maximumAge: 60000, // Accept up to 1 minute old cached location
+        timeout: 5000
+      }
+    );
+
+    // 2) Start high accuracy watch for continuous improvement
     watchIdRef.current = navigator.geolocation.watchPosition(onUpdate, onError, {
       enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 30000,
+      maximumAge: 0, // Always get fresh position
+      timeout: 30000
     });
 
-    // 3) after MAX_WAIT, only accept if at least "OK"
+    // 3) Fallback timer with improved logic
     gpsFallbackTimerRef.current = setTimeout(() => {
-      if (locationLockRef.current) return;
+      if (locationLockRef.current) return; // Already got good accuracy
 
       if (bestPos && typeof bestPos.coords.accuracy === 'number') {
         const acc = bestPos.coords.accuracy;
 
-        if (acc <= OK_ACCURACY_METERS) {
-          toast(`Using best available location (${Math.round(acc)}m). Drag the pin if needed.`, { icon: '📍' });
+        if (acc <= MINIMUM_ACCURACY) {
+          // Accept the best we got
+          locationLockRef.current = true;
           acceptPosition(bestPos, true);
+          
+          if (acc > GOOD_ACCURACY) {
+            toast(`Using best available location (${Math.round(acc)}m). For better accuracy:`, {
+              icon: '📡',
+              duration: 5000,
+            });
+            // Show tips for better accuracy
+            setTimeout(() => {
+              toast('📍 Tips for better GPS: Move outdoors, enable WiFi, hold phone upright', {
+                icon: '💡',
+                duration: 5000,
+              });
+            }, 1000);
+          }
         } else {
-          // IMPORTANT: don't pretend it's correct
+          // Accuracy too poor
           toast.error(
-            `Location accuracy is too low (${Math.round(acc)}m). Please turn on GPS / move outside, type your location, or drag the pin on the map.`
+            `GPS accuracy too low (${Math.round(acc)}m). Please:\n` +
+            `1. Move to an open area\n` +
+            `2. Enable WiFi/Cellular\n` +
+            `3. Type location manually\n` +
+            `4. Drag the pin on map`,
+            { duration: 8000 }
           );
           setIsLoading(false);
-          // Still set location so user can drag it
+          
+          // Still set location so user can see and adjust
           if (bestPos) {
             const { latitude, longitude } = bestPos.coords;
             const loc = { lat: latitude, lng: longitude };
@@ -225,7 +390,8 @@ export default function RidePage() {
           }
         }
       } else {
-        toast.error('Could not get a reliable GPS fix. Please type your location or drag the pin.');
+        // No position at all
+        toast.error('No GPS signal detected. Please check permissions and try again.');
         setIsLoading(false);
         const defaultLoc = { lat: -17.8292, lng: 31.0522 };
         setCurrentLocation(defaultLoc);
@@ -233,11 +399,185 @@ export default function RidePage() {
         reverseGeocode(defaultLoc);
       }
     }, MAX_WAIT_MS);
-  }, [reverseGeocode]);
+  }, [reverseGeocode, verifyLocationAccuracy]);
 
+  // Stop polling helper
+  const stopPollingActiveRide = useCallback(() => {
+    if (activeRidePollIntervalRef.current) {
+      clearInterval(activeRidePollIntervalRef.current);
+      activeRidePollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Poll for active ride status updates
+  const startPollingActiveRide = useCallback(() => {
+    // Clear any existing interval
+    stopPollingActiveRide();
+
+    // Poll every 5 seconds
+    activeRidePollIntervalRef.current = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('nexryde_token');
+        if (!token) {
+          stopPollingActiveRide();
+          return;
+        }
+
+        const response = await fetch('/api/rides/active', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.activeRide) {
+            setActiveRide(data.activeRide);
+            setShowActiveRideModal(true);
+          } else {
+            setActiveRide(null);
+            setShowActiveRideModal(false);
+            stopPollingActiveRide();
+          }
+        }
+      } catch (error) {
+        console.error('Error polling active ride:', error);
+      }
+    }, 5000);
+  }, [stopPollingActiveRide]);
+
+  // Check for active ride
+  const checkActiveRide = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) {
+        setActiveRide(null);
+        setShowActiveRideModal(false);
+        return;
+      }
+
+      const response = await fetch('/api/rides/active', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.activeRide) {
+          setActiveRide(data.activeRide);
+          setShowActiveRideModal(true);
+          // Polling is handled by the useEffect interval, no need to start separate polling
+        } else {
+          setActiveRide(null);
+          setShowActiveRideModal(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active ride:', error);
+    }
+  }, []);
+
+  // Handle booking submission
+  const handleBookRide = useCallback(async () => {
+    if (!currentLocation || !destinationCoords) {
+      toast.error('Please select pickup and destination locations');
+      return;
+    }
+
+    if (!currentLocationAddress || !destination) {
+      toast.error('Please ensure both locations have addresses');
+      return;
+    }
+
+    if (distance === 0) {
+      toast.error('Please wait for route calculation');
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) {
+        toast.error('Please log in to book a ride');
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch('/api/rides/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pickupLat: currentLocation.lat,
+          pickupLng: currentLocation.lng,
+          pickupAddress: currentLocationAddress,
+          destinationLat: destinationCoords.lat,
+          destinationLng: destinationCoords.lng,
+          destinationAddress: destination,
+          distance,
+          price: adjustedPrice,
+          isRoundTrip,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to book ride');
+        return;
+      }
+
+      toast.success('Ride request created! Searching for drivers...');
+      // Refresh active ride
+      await checkActiveRide();
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast.error('Failed to book ride. Please try again.');
+    } finally {
+      setIsBooking(false);
+    }
+  }, [currentLocation, destinationCoords, currentLocationAddress, destination, distance, adjustedPrice, isRoundTrip, router, checkActiveRide]);
+
+  // Check for active ride on mount and set up continuous polling
   useEffect(() => {
-    getCurrentLocation();
-  }, [getCurrentLocation]);
+    // Check immediately on mount (no delay)
+    checkActiveRide();
+    
+    // Set up continuous polling every 3 seconds to ensure modal stays visible
+    const pollInterval = setInterval(() => {
+      checkActiveRide();
+    }, 3000);
+
+    return () => {
+      clearInterval(pollInterval);
+      stopPollingActiveRide();
+    };
+  }, [checkActiveRide, stopPollingActiveRide]);
+
+  // Initialize default location when map loads (so map shows immediately)
+  useEffect(() => {
+    if (isLoaded && !currentLocation) {
+      const defaultLoc = { lat: -17.8292, lng: 31.0522 };
+      setCurrentLocation(defaultLoc);
+      setMapCenter(defaultLoc);
+      // Get address for default location
+      reverseGeocode(defaultLoc);
+      // Try to get GPS location in background
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        getCurrentLocation();
+      }
+    }
+  }, [isLoaded, currentLocation, getCurrentLocation, reverseGeocode]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPollingActiveRide();
+    };
+  }, [stopPollingActiveRide]);
 
   // Cleanup timeout and geolocation watch on unmount
   useEffect(() => {
@@ -680,6 +1020,12 @@ export default function RidePage() {
       }
       destinationMarkerRef.current = null;
     }
+    
+    // Clear previous accuracy circle
+    if (accuracyCircleRef.current) {
+      accuracyCircleRef.current.setMap(null);
+      accuracyCircleRef.current = null;
+    }
 
     // Create current location marker with person icon - now draggable
     if (currentLocation) {
@@ -703,11 +1049,27 @@ export default function RidePage() {
             };
             setCurrentLocation(newPos);
             setMapCenter(newPos);
+            setGpsAccuracy(null); // Clear GPS accuracy when manually adjusted
             reverseGeocode(newPos); // Update address via reverse geocoding
             toast.success('Location adjusted');
             // Route will recalculate automatically via useEffect
           }
         });
+        
+        // Add accuracy circle around current location if GPS accuracy is available
+        if (gpsAccuracy && gpsAccuracy > 0 && gpsAccuracy <= 200) {
+          accuracyCircleRef.current = new google.maps.Circle({
+            map: mapRef.current,
+            center: currentLocation,
+            radius: gpsAccuracy, // Accuracy in meters
+            fillColor: '#F5BF19',
+            fillOpacity: 0.1,
+            strokeColor: '#F5BF19',
+            strokeOpacity: 0.3,
+            strokeWeight: 1,
+            zIndex: 1,
+          });
+        }
 
         console.log('Current location marker created at:', currentLocation);
       } catch (error) {
@@ -738,7 +1100,49 @@ export default function RidePage() {
     if (mapRef.current && isLoaded) {
       updateMarkers();
     }
-  }, [currentLocation, destinationCoords, isLoaded, updateMarkers]);
+  }, [currentLocation, destinationCoords, isLoaded, reverseGeocode, gpsAccuracy]);
+
+  // GPS Accuracy Indicator Component
+  const GpsAccuracyIndicator = ({ accuracy }: { accuracy: number }) => {
+    if (accuracy === null) return null;
+    
+    let status = '';
+    let color = '';
+    
+    if (accuracy <= 20) {
+      status = 'Excellent';
+      color = 'bg-green-500';
+    } else if (accuracy <= 50) {
+      status = 'Good';
+      color = 'bg-green-400';
+    } else if (accuracy <= 100) {
+      status = 'Fair';
+      color = 'bg-yellow-500';
+    } else if (accuracy <= 150) {
+      status = 'Low';
+      color = 'bg-orange-500';
+    } else {
+      status = 'Poor';
+      color = 'bg-red-500';
+    }
+    
+    return (
+      <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-1">
+          <div className={`w-2 h-2 rounded-full ${color} animate-pulse`} />
+          <span className="text-xs text-white/70">
+            GPS: {status} (~{Math.round(accuracy)}m)
+          </span>
+        </div>
+        {accuracy > 100 && (
+          <span className="text-xs text-yellow-400">
+            • Move outdoors for better accuracy
+          </span>
+        )}
+      </div>
+    );
+  };
+
 
   // Center map on current location when it's obtained
   useEffect(() => {
@@ -754,22 +1158,35 @@ export default function RidePage() {
       <div className="min-h-screen bg-nexryde-yellow-darker flex items-center justify-center p-4">
         <div className="text-white text-center">
           <p className="text-xl mb-4">Error loading Google Maps</p>
-          <p className="text-white/70">Please check your API key</p>
+          <p className="text-white/70 mb-2">Please check your API key in .env.local</p>
+          {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+            <p className="text-yellow-400 text-sm">
+              Missing: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  if (!isLoaded || isLoading) {
+  // Show map even if GPS is still loading - don't block on GPS
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-nexryde-yellow-darker flex items-center justify-center">
-        <div className="text-white text-xl">Loading map...</div>
+        <div className="text-white text-center">
+          <div className="text-xl mb-2">Loading map...</div>
+          {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+            <div className="text-yellow-400 text-sm mt-2">
+              Google Maps API key not found. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to .env.local and restart the server.
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-nexryde-yellow-darker">
+      <div className={`min-h-screen bg-nexryde-yellow-darker ${showActiveRideModal && activeRide ? 'pointer-events-none overflow-hidden' : ''}`}>
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -833,7 +1250,7 @@ export default function RidePage() {
                   <Navigation className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 z-10" />
                   <input
                     type="text"
-                    value={currentLocationAddress || (currentLocation ? `Lat: ${currentLocation.lat.toFixed(4)}, Lng: ${currentLocation.lng.toFixed(4)}` : 'Getting location...')}
+                    value={currentLocationAddress || 'Getting location...'}
                     onChange={(e) => handleCurrentLocationInput(e.target.value)}
                     onFocus={() => {
                       if (currentLocationSuggestions.length > 0) {
@@ -844,7 +1261,8 @@ export default function RidePage() {
                       setTimeout(() => setShowCurrentLocationSuggestions(false), 200);
                     }}
                     placeholder="Enter your location or use GPS"
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
+                    disabled={!!activeRide}
+                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {/* Current Location Suggestions */}
                   {showCurrentLocationSuggestions && currentLocationSuggestions.length > 0 && (
@@ -866,18 +1284,37 @@ export default function RidePage() {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={getCurrentLocation}
-                  className="px-4 py-3 bg-nexryde-yellow text-white rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 whitespace-nowrap"
-                  title="Use GPS location"
-                >
-                  📍 GPS
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={getCurrentLocation}
+                    disabled={!!activeRide}
+                    className="px-4 py-3 bg-nexryde-yellow text-white rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed relative group flex items-center gap-2"
+                    title="Use GPS location"
+                  >
+                    <div className={`w-2 h-2 rounded-full ${isLoading ? 'animate-ping bg-white' : 'bg-white'}`} />
+                    <span>{isLoading ? 'Getting GPS...' : '📍 GPS'}</span>
+                  </button>
+                  
+                  {/* GPS Tips Button */}
+                  <button
+                    onClick={() => setShowGpsTips(true)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-colors"
+                    title="GPS Tips"
+                  >
+                    ?
+                  </button>
+                </div>
               </div>
-              {/* GPS Accuracy Display */}
+              
+              {/* GPS Accuracy Indicator */}
               {gpsAccuracy !== null && (
-                <p className="mt-2 text-xs text-white/60">
-                  GPS accuracy: ~{Math.round(gpsAccuracy)}m
+                <GpsAccuracyIndicator accuracy={gpsAccuracy} />
+              )}
+              
+              {/* Accuracy Status */}
+              {accuracyStatus && (
+                <p className="mt-1 text-xs text-white/50 italic">
+                  {accuracyStatus}
                 </p>
               )}
             </div>
@@ -904,7 +1341,8 @@ export default function RidePage() {
                     setTimeout(() => setShowSuggestions(false), 200);
                   }}
                   placeholder="Enter destination"
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
+                  disabled={!!activeRide}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 {showSuggestions && autocompleteSuggestions.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-lg rounded-xl shadow-xl border border-white/20 max-h-60 overflow-y-auto">
@@ -939,7 +1377,8 @@ export default function RidePage() {
                   type="checkbox"
                   checked={isRoundTrip}
                   onChange={(e) => setIsRoundTrip(e.target.checked)}
-                  className="w-5 h-5 rounded border-white/30 bg-white/10 text-nexryde-yellow focus:ring-2 focus:ring-nexryde-yellow focus:ring-offset-0 cursor-pointer"
+                  disabled={!!activeRide}
+                  className="w-5 h-5 rounded border-white/30 bg-white/10 text-nexryde-yellow focus:ring-2 focus:ring-nexryde-yellow focus:ring-offset-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="flex items-center space-x-2">
                   <RotateCcw className="w-4 h-4 text-white/70" />
@@ -976,7 +1415,7 @@ export default function RidePage() {
                   <div className="flex items-center justify-center space-x-4">
                     <button
                       onClick={handleDecreasePrice}
-                      disabled={adjustedPrice <= suggestedPrice - 1}
+                      disabled={adjustedPrice <= suggestedPrice - 1 || !!activeRide}
                       className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Minus className="w-5 h-5 text-white" />
@@ -984,7 +1423,8 @@ export default function RidePage() {
                     <span className="text-white/70 text-sm">Adjust price</span>
                     <button
                       onClick={handleIncreasePrice}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                      disabled={!!activeRide}
+                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-5 h-5 text-white" />
                     </button>
@@ -992,15 +1432,67 @@ export default function RidePage() {
                 </div>
 
                 <button
-                  className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 mt-4"
+                  onClick={handleBookRide}
+                  disabled={isBooking || !currentLocation || !destinationCoords || distance === 0 || !!activeRide}
+                  className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirm Booking
+                  {activeRide ? 'You have an active ride' : isBooking ? 'Booking...' : 'Confirm Booking'}
                 </button>
               </div>
             </motion.div>
           )}
         </motion.div>
       </div>
+
+      {/* Active Ride Modal - Always show when there's an active ride, non-closable */}
+      {showActiveRideModal && activeRide && (
+        <ActiveRideModal
+          activeRide={activeRide}
+          onClose={() => {}} // Disable close - modal should not be closable
+          onCancel={() => {
+            setActiveRide(null);
+            setShowActiveRideModal(false);
+            stopPollingActiveRide();
+          }}
+        />
+      )}
+      
+      {/* GPS Tips Modal */}
+      {showGpsTips && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowGpsTips(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">📡 Improve GPS Accuracy</h3>
+            <ul className="space-y-3 text-gray-700">
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Move to an open area away from buildings</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Enable WiFi (even if not connected)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Hold phone upright, not flat</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Wait 10-15 seconds for GPS to settle</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-500">✓</span>
+                <span>Disable battery saver mode</span>
+              </li>
+            </ul>
+            <button
+              onClick={() => setShowGpsTips(false)}
+              className="mt-6 w-full bg-nexryde-yellow text-white py-3 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

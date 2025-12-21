@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function ForgotPasswordPage() {
   const [phone, setPhone] = useState('');
@@ -15,13 +16,32 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock forgot password - backend will be implemented later
-    setTimeout(() => {
-      toast.success('OTP sent to your phone! (Mock)');
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to send OTP');
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success('OTP sent to your phone! Use 123456 for testing.');
       localStorage.setItem('temp_phone', phone);
       setIsLoading(false);
       router.push('/auth/reset-password');
-    }, 1000);
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      toast.error('An error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -46,9 +66,9 @@ export default function ForgotPasswordPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center"
+              className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
             >
-              <span className="text-2xl">🚗</span>
+              <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" priority />
             </motion.div>
             <h1 className="text-3xl font-bold text-white mb-2">Forgot Password</h1>
             <p className="text-white/80">Enter your phone number to reset password</p>
@@ -69,6 +89,7 @@ export default function ForgotPasswordPage() {
                   placeholder="0771234567"
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>

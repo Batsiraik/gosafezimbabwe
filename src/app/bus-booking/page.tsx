@@ -1,108 +1,194 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Calendar, Clock, MapPin as StationIcon, Bus, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Clock, MapPin as StationIcon, Bus, Plus, Minus, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import CustomSelect from '@/components/CustomSelect';
+import ActiveBusBookingModal from '@/components/ActiveBusBookingModal';
 
-const cities = [
-  'New York, USA',
-  'London, UK',
-  'Tokyo, Japan',
-  'Paris, France',
-  'Sydney, Australia',
-  'Toronto, Canada',
-  'Dubai, UAE',
-  'Singapore',
-  'Berlin, Germany',
-  'Mumbai, India'
-];
+interface City {
+  id: string;
+  name: string;
+  country?: string;
+  isActive: boolean;
+}
 
 interface BusOption {
   id: string;
-  time: string;
+  departureTime: string;
+  arrivalTime?: string;
   station: string;
   price: number;
   availableSeats: number;
+  conductorPhone?: string;
+  fromCity: string;
+  toCity: string;
 }
 
 export default function BusBookingPage() {
   const router = useRouter();
+  const [cities, setCities] = useState<City[]>([]);
+  const [loadingCities, setLoadingCities] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [fromCity, setFromCity] = useState<string>('');
-  const [toCity, setToCity] = useState<string>('');
+  const [fromCityId, setFromCityId] = useState<string>('');
+  const [toCityId, setToCityId] = useState<string>('');
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [numberOfTickets, setNumberOfTickets] = useState<number>(1);
   const [availableBuses, setAvailableBuses] = useState<BusOption[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeBooking, setActiveBooking] = useState<any>(null);
+  const [showActiveBookingModal, setShowActiveBookingModal] = useState(false);
 
-  // Mock bus data - always returns mock buses for testing
-  const getAvailableBuses = (): BusOption[] => {
-    // Mock data - different buses at different times
-    // In real app, this would come from backend based on date and route
-    return [
-      {
-        id: 'bus-1',
-        time: '09:00 AM',
-        station: 'Central Bus Station',
-        price: 25,
-        availableSeats: 15
-      },
-      {
-        id: 'bus-2',
-        time: '11:00 AM',
-        station: 'Downtown Terminal',
-        price: 25,
-        availableSeats: 8
-      },
-      {
-        id: 'bus-3',
-        time: '02:00 PM',
-        station: 'Central Bus Station',
-        price: 30,
-        availableSeats: 20
-      },
-      {
-        id: 'bus-4',
-        time: '05:00 PM',
-        station: 'North Station',
-        price: 28,
-        availableSeats: 12
-      },
-      {
-        id: 'bus-5',
-        time: '08:00 PM',
-        station: 'Central Bus Station',
-        price: 32,
-        availableSeats: 5
+  // Fetch cities from API
+  const fetchCities = useCallback(async () => {
+    try {
+      setLoadingCities(true);
+      const response = await fetch('/api/cities');
+      if (response.ok) {
+        const data = await response.json();
+        const citiesList = data.cities || [];
+        
+        // If no cities exist, seed them automatically
+        if (citiesList.length === 0) {
+          const seedResponse = await fetch('/api/cities/seed', { method: 'POST' });
+          if (seedResponse.ok) {
+            // Fetch again after seeding
+            const refreshResponse = await fetch('/api/cities');
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+              setCities(refreshData.cities || []);
+              return;
+            }
+          }
+        }
+        
+        setCities(citiesList);
+      } else {
+        // If cities API fails, try to seed cities first
+        const seedResponse = await fetch('/api/cities/seed', { method: 'POST' });
+        if (seedResponse.ok) {
+          const citiesResponse = await fetch('/api/cities');
+          if (citiesResponse.ok) {
+            const citiesData = await citiesResponse.json();
+            setCities(citiesData.cities || []);
+          }
+        }
       }
-    ];
+    } catch (error) {
+      console.error('Error fetching cities:', error);
+      toast.error('Failed to load cities. Please refresh the page.');
+    } finally {
+      setLoadingCities(false);
+    }
+  }, []);
+
+  // Check for active bus booking
+  const checkActiveBooking = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/buses/bookings/active', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.booking) {
+          setActiveBooking(data.booking);
+          setShowActiveBookingModal(true);
+        } else {
+          setActiveBooking(null);
+          setShowActiveBookingModal(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking active booking:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCities();
+    checkActiveBooking();
+    // Poll for active booking updates every 3 seconds (to catch confirmation status changes)
+    const interval = setInterval(() => {
+      checkActiveBooking();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [fetchCities, checkActiveBooking]);
+
+  // Convert 24-hour time to 12-hour format
+  const formatTime = (time24: string): string => {
+    if (!time24) return '';
+    const [hours, minutes] = time24.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!selectedDate) {
       toast.error('Please select a date');
       return;
     }
-    if (!fromCity || !toCity) {
+    if (!fromCityId || !toCityId) {
       toast.error('Please select both from and to cities');
       return;
     }
-    if (fromCity === toCity) {
+    if (fromCityId === toCityId) {
       toast.error('From and to cities must be different');
       return;
     }
 
-    // Always return mock buses for now
-    const buses = getAvailableBuses();
-    setAvailableBuses(buses);
-    setSelectedBus(null);
-    setNumberOfTickets(1);
-    
-    toast.success(`Found ${buses.length} bus(es) available`);
+    try {
+      setIsSearching(true);
+      const response = await fetch(
+        `/api/buses/search?fromCityId=${fromCityId}&toCityId=${toCityId}&travelDate=${selectedDate}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to search buses');
+      }
+
+      const data = await response.json();
+      
+      // Format buses for display
+      const formattedBuses: BusOption[] = data.buses.map((bus: any) => ({
+        id: bus.id,
+        departureTime: formatTime(bus.departureTime),
+        arrivalTime: bus.arrivalTime ? formatTime(bus.arrivalTime) : undefined,
+        station: bus.station,
+        price: bus.price,
+        availableSeats: bus.availableSeats,
+        conductorPhone: bus.conductorPhone,
+        fromCity: bus.fromCity,
+        toCity: bus.toCity,
+      }));
+
+      setAvailableBuses(formattedBuses);
+      setSelectedBus(null);
+      setNumberOfTickets(1);
+      
+      if (formattedBuses.length === 0) {
+        toast.error('No buses available for this route on the selected date');
+      } else {
+        toast.success(`Found ${formattedBuses.length} bus(es) available`);
+      }
+    } catch (error) {
+      console.error('Error searching buses:', error);
+      toast.error('Failed to search buses. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  const handleBuyTickets = () => {
+  const handleBuyTickets = async () => {
     if (!selectedBus) {
       toast.error('Please select a bus');
       return;
@@ -120,26 +206,60 @@ export default function BusBookingPage() {
       return;
     }
 
-    const totalPrice = bus.price * numberOfTickets;
+    try {
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) {
+        toast.error('Please login to continue');
+        router.push('/auth/login');
+        return;
+      }
 
-    // TODO: Handle ticket purchase (backend integration)
-    const bookingData = {
-      date: selectedDate,
-      fromCity,
-      toCity,
-      busId: selectedBus,
-      busTime: bus.time,
-      busStation: bus.station,
-      numberOfTickets,
-      totalPrice
-    };
+      setIsSubmitting(true);
 
-    console.log('Bus booking:', bookingData);
-    toast.success(`Successfully booked ${numberOfTickets} ticket(s)! Total: $${totalPrice}`);
+      const response = await fetch('/api/buses/bookings/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          busScheduleId: selectedBus,
+          travelDate: selectedDate,
+          numberOfTickets,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create booking');
+      }
+
+      toast.success(`Booking created successfully! Total: $${data.booking.totalPrice.toFixed(2)}`);
+      
+      // Reset form
+      setSelectedBus(null);
+      setNumberOfTickets(1);
+      setAvailableBuses([]);
+      setSelectedDate('');
+      setFromCityId('');
+      setToCityId('');
+      
+      // Check for active booking (will show modal)
+      await checkActiveBooking();
+    } catch (error: any) {
+      console.error('Error creating booking:', error);
+      toast.error(error.message || 'Failed to create booking. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const selectedBusData = availableBuses.find(b => b.id === selectedBus);
   const totalPrice = selectedBusData ? selectedBusData.price * numberOfTickets : 0;
+  
+  const fromCityName = cities.find(c => c.id === fromCityId)?.name || '';
+  const toCityName = cities.find(c => c.id === toCityId)?.name || '';
 
   // Get today's date in YYYY-MM-DD format for min date
   const today = new Date().toISOString().split('T')[0];
@@ -191,54 +311,50 @@ export default function BusBookingPage() {
             </div>
 
             {/* From City */}
-            <div>
-              <label className="block text-white/70 text-sm font-medium mb-2">
-                From City
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 z-10" />
-                <select
-                  value={fromCity}
-                  onChange={(e) => setFromCity(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent appearance-none cursor-pointer"
-                >
-                  <option value="" className="bg-gray-800">Select from city</option>
-                  {cities.map((city) => (
-                    <option key={city} value={city} className="bg-gray-800">
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <CustomSelect
+              label="From City"
+              value={fromCityId}
+              onChange={setFromCityId}
+              placeholder="Select from city"
+              disabled={loadingCities}
+              icon={<MapPin className="w-5 h-5 text-white/50" />}
+              options={[
+                ...(cities.length === 0 && !loadingCities
+                  ? [{ value: '', label: 'No cities available' }]
+                  : cities.map(city => ({ value: city.id, label: city.name }))
+                )
+              ]}
+            />
 
             {/* To City */}
-            <div>
-              <label className="block text-white/70 text-sm font-medium mb-2">
-                To City
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 z-10" />
-                <select
-                  value={toCity}
-                  onChange={(e) => setToCity(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent appearance-none cursor-pointer"
-                >
-                  <option value="" className="bg-gray-800">Select to city</option>
-                  {cities.map((city) => (
-                    <option key={city} value={city} className="bg-gray-800">
-                      {city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <CustomSelect
+              label="To City"
+              value={toCityId}
+              onChange={setToCityId}
+              placeholder="Select to city"
+              disabled={loadingCities}
+              icon={<MapPin className="w-5 h-5 text-white/50" />}
+              options={[
+                ...(cities.length === 0 && !loadingCities
+                  ? [{ value: '', label: 'No cities available' }]
+                  : cities.map(city => ({ value: city.id, label: city.name }))
+                )
+              ]}
+            />
 
             <button
               onClick={handleSearch}
-              className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200"
+              disabled={isSearching || loadingCities}
+              className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              Search Buses
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <span>Search Buses</span>
+              )}
             </button>
           </div>
 
@@ -269,7 +385,10 @@ export default function BusBookingPage() {
                         <div>
                           <div className="flex items-center space-x-2 mb-1">
                             <Clock className="w-4 h-4 text-white/70" />
-                            <span className="text-white font-semibold">{bus.time}</span>
+                            <span className="text-white font-semibold">{bus.departureTime}</span>
+                            {bus.arrivalTime && (
+                              <span className="text-white/60 text-sm">→ {bus.arrivalTime}</span>
+                            )}
                           </div>
                           <div className="flex items-center space-x-2">
                             <StationIcon className="w-4 h-4 text-white/70" />
@@ -328,15 +447,36 @@ export default function BusBookingPage() {
                 </div>
                 <button
                   onClick={handleBuyTickets}
-                  className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200"
+                  disabled={isSubmitting}
+                  className="w-full bg-nexryde-yellow text-white py-3 px-6 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
-                  Buy Tickets
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>Buy Tickets</span>
+                  )}
                 </button>
               </div>
             </motion.div>
           )}
         </motion.div>
       </div>
+
+      {/* Active Booking Modal */}
+      {showActiveBookingModal && activeBooking && (
+        <ActiveBusBookingModal
+          activeBooking={activeBooking}
+          onClose={() => setShowActiveBookingModal(false)}
+          onCancel={() => {
+            setActiveBooking(null);
+            setShowActiveBookingModal(false);
+            checkActiveBooking();
+          }}
+        />
+      )}
     </div>
   );
 }

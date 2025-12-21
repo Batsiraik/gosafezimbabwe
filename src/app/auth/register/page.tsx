@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, User, Phone, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -26,13 +27,32 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Mock registration - backend will be implemented later
-    setTimeout(() => {
-      toast.success('Registration successful! (Mock)');
-      localStorage.setItem('temp_phone', formData.phone);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Registration failed');
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success('Registration successful! Please verify OTP.');
+      localStorage.setItem('temp_phone', data.user.phone);
       setIsLoading(false);
       router.push('/auth/verify-otp');
-    }, 1000);
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast.error('An error occurred. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -57,12 +77,12 @@ export default function RegisterPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 bg-nexryde-yellow rounded-full mx-auto mb-4 flex items-center justify-center"
+              className="w-20 h-20 mx-auto mb-4 flex items-center justify-center"
             >
-              <span className="text-2xl">🚗</span>
+              <Image src="/logo.png" alt="GO SAFE Logo" width={80} height={80} className="object-contain" priority />
             </motion.div>
             <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-            <p className="text-white/80">Join ONEGO today</p>
+            <p className="text-white/80">Join GO SAFE today</p>
           </div>
 
           {/* Registration Form */}
@@ -81,6 +101,7 @@ export default function RegisterPage() {
                   placeholder="John Doe"
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -99,6 +120,7 @@ export default function RegisterPage() {
                   placeholder="0771234567"
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -117,6 +139,7 @@ export default function RegisterPage() {
                   placeholder="Create a password"
                   className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent"
                   required
+                  suppressHydrationWarning
                 />
               </div>
             </div>
