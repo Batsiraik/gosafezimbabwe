@@ -20,10 +20,6 @@ const defaultCenter = {
   lng: 31.0522
 };
 
-// Only motorbike delivery available
-const MOTORBIKE_PRICE_PER_KM = 0.40;
-const MOTORBIKE_MIN_PRICE = 2.00;
-
 export default function ParcelPage() {
   const router = useRouter();
   // Only motorbike delivery available - no vehicle selection needed
@@ -43,6 +39,8 @@ export default function ParcelPage() {
   const [activeParcel, setActiveParcel] = useState<any>(null);
   const [showActiveParcelModal, setShowActiveParcelModal] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [parcelPricePerKm, setParcelPricePerKm] = useState<number>(0.40); // Default fallback
+  const [parcelMinPrice, setParcelMinPrice] = useState<number>(2.00); // Default fallback
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const fromInputRef = useRef<HTMLInputElement>(null);
@@ -290,8 +288,8 @@ export default function ParcelPage() {
           setDistance(distanceInKm);
 
           // Calculate price using motorbike pricing
-          const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
-          const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+          const basePrice = distanceInKm * parcelPricePerKm;
+          const finalPrice = Math.max(basePrice, parcelMinPrice);
           setSuggestedPrice(finalPrice);
 
           // Decode polyline for map display
@@ -321,8 +319,8 @@ export default function ParcelPage() {
         setDistance(distanceInKm);
 
         // Calculate price using motorbike pricing
-        const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
-        const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+        const basePrice = distanceInKm * parcelPricePerKm;
+        const finalPrice = Math.max(basePrice, parcelMinPrice);
         setSuggestedPrice(finalPrice);
 
         setRoutePath([fromCoords, toCoords]);
@@ -334,14 +332,14 @@ export default function ParcelPage() {
       setDistance(distanceInKm);
 
       // Calculate price using motorbike pricing
-      const basePrice = distanceInKm * MOTORBIKE_PRICE_PER_KM;
-      const finalPrice = Math.max(basePrice, MOTORBIKE_MIN_PRICE);
+      const basePrice = distanceInKm * parcelPricePerKm;
+      const finalPrice = Math.max(basePrice, parcelMinPrice);
       setSuggestedPrice(finalPrice);
 
       setRoutePath([fromCoords, toCoords]);
       toast.error('Could not calculate route. Using estimated distance.');
     }
-  }, [fromCoords, toCoords, isLoaded]);
+  }, [fromCoords, toCoords, isLoaded, parcelPricePerKm, parcelMinPrice]);
 
   // Helper function to calculate straight-line distance
   const calculateStraightLineDistance = (
@@ -358,6 +356,23 @@ export default function ParcelPage() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
+
+  // Fetch pricing settings
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await fetch('/api/pricing');
+        if (response.ok) {
+          const data = await response.json();
+          setParcelPricePerKm(data.parcelPricePerKm || 0.40);
+          setParcelMinPrice(data.parcelMinPrice || 2.00);
+        }
+      } catch (error) {
+        console.error('Error fetching pricing:', error);
+      }
+    };
+    fetchPricing();
+  }, []);
 
   // Recalculate route when locations or vehicle change
   useEffect(() => {
@@ -607,7 +622,7 @@ export default function ParcelPage() {
                 <h2 className="text-white font-semibold text-lg mb-1">Motorbike Delivery</h2>
                 <p className="text-white/70 text-sm">Fast and efficient parcel delivery</p>
                 <p className="text-nexryde-yellow text-sm font-medium mt-1">
-                  ${MOTORBIKE_PRICE_PER_KM.toFixed(2)}/km • Min: ${MOTORBIKE_MIN_PRICE.toFixed(2)}
+                  ${parcelPricePerKm.toFixed(2)}/km • Min: ${parcelMinPrice.toFixed(2)}
                 </p>
               </div>
             </div>

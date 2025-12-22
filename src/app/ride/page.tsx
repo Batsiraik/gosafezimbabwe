@@ -41,6 +41,7 @@ export default function RidePage() {
   const [isBooking, setIsBooking] = useState(false);
   const [showGpsTips, setShowGpsTips] = useState(false);
   const [accuracyStatus, setAccuracyStatus] = useState<string>('');
+  const [ridePricePerKm, setRidePricePerKm] = useState<number>(0.60); // Default fallback
   const activeRidePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
   
@@ -557,6 +558,22 @@ export default function RidePage() {
     };
   }, [checkActiveRide, stopPollingActiveRide]);
 
+  // Fetch pricing settings
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await fetch('/api/pricing');
+        if (response.ok) {
+          const data = await response.json();
+          setRidePricePerKm(data.ridePricePerKm || 0.60);
+        }
+      } catch (error) {
+        console.error('Error fetching pricing:', error);
+      }
+    };
+    fetchPricing();
+  }, []);
+
   // Initialize default location when map loads (so map shows immediately)
   useEffect(() => {
     if (isLoaded && !currentLocation) {
@@ -923,12 +940,12 @@ export default function RidePage() {
   // Recalculate when round trip changes
   useEffect(() => {
     if (distance > 0) {
-      const basePrice = distance * 0.60; // $0.60 per km
+      const basePrice = distance * ridePricePerKm;
       const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
       setSuggestedPrice(finalPrice);
       setAdjustedPrice(finalPrice);
     }
-  }, [isRoundTrip, distance]);
+  }, [isRoundTrip, distance, ridePricePerKm]);
 
   // Recalculate route when current location becomes available and destination is set
   useEffect(() => {
