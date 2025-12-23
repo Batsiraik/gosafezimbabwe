@@ -417,7 +417,7 @@ export default function DashboardPage() {
             
             .center {
               position: absolute;
-              top: 58%;
+              top: 50%;
               left: 50%;
               transform: translate(-50%, -50%);
               width: 200px;
@@ -428,7 +428,7 @@ export default function DashboardPage() {
             }
             
             .center-logo {
-              width: 100%;
+              width: 70%;
               height: 100%;
               border-radius: 50%;
               display: flex;
