@@ -147,7 +147,7 @@ export default function RidePage() {
     if (watchIdRef.current !== null) {
       if (isNative) {
         Geolocation.clearWatch({ id: watchIdRef.current.toString() });
-      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation && typeof watchIdRef.current === 'number') {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       watchIdRef.current = null;
@@ -205,9 +205,9 @@ export default function RidePage() {
         if (watchIdRef.current !== null) {
           if (isNative) {
             Geolocation.clearWatch({ id: watchIdRef.current.toString() });
-          } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-          }
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation && typeof watchIdRef.current === 'number') {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
           watchIdRef.current = null;
         }
         
@@ -299,7 +299,7 @@ export default function RidePage() {
       if (watchIdRef.current !== null) {
         if (isNative) {
           Geolocation.clearWatch({ id: watchIdRef.current.toString() });
-        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation && typeof watchIdRef.current === 'number') {
           navigator.geolocation.clearWatch(watchIdRef.current);
         }
         watchIdRef.current = null;
@@ -683,7 +683,7 @@ export default function RidePage() {
         const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
         if (isNative) {
           Geolocation.clearWatch({ id: watchIdRef.current.toString() });
-        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation && typeof watchIdRef.current === 'number') {
           navigator.geolocation.clearWatch(watchIdRef.current);
         }
         watchIdRef.current = null;
@@ -702,7 +702,7 @@ export default function RidePage() {
       const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
       if (isNative) {
         Geolocation.clearWatch({ id: watchIdRef.current.toString() });
-      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation && typeof watchIdRef.current === 'number') {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       watchIdRef.current = null;
