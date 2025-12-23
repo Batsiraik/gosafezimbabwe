@@ -239,7 +239,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-nexryde-yellow-darker">
+    <div className="min-h-screen" style={{ backgroundColor: '#434345' }}>
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
