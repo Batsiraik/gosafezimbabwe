@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyRideBidAccepted } from '@/lib/notifications';
 
 // POST /api/rides/bids/accept - Accept a driver's bid
 export async function POST(request: NextRequest) {
@@ -147,6 +148,15 @@ export async function POST(request: NextRequest) {
       });
 
       return { acceptedBid, updatedRide };
+    });
+
+    // Notify driver that their bid was accepted (async, don't wait)
+    notifyRideBidAccepted(
+      bid.driver.user.id,
+      bid.rideRequest.id,
+      result.updatedRide.user.fullName
+    ).catch((error) => {
+      console.error('Error sending bid accepted notification:', error);
     });
 
     return NextResponse.json({

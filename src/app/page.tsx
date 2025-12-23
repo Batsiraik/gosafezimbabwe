@@ -21,7 +21,11 @@ export default function Home() {
       
       if (token && userData) {
         setIsAuthenticated(true);
-        router.push('/dashboard');
+        // Check for stored user mode and redirect accordingly
+        const { getUserMode, getDashboardRoute } = require('@/lib/user-mode');
+        const mode = getUserMode();
+        const dashboardRoute = getDashboardRoute(mode);
+        router.push(dashboardRoute);
       }
     }
   }, [router]);

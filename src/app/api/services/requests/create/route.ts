@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyNewServiceRequest } from '@/lib/notifications';
 
 // POST /api/services/requests/create - Create a new service request
 export async function POST(request: NextRequest) {
@@ -96,6 +97,11 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Notify service providers offering this service (async, don't wait)
+    notifyNewServiceRequest(serviceRequest.id, serviceId).catch((error) => {
+      console.error('Error sending service request notifications:', error);
     });
 
     return NextResponse.json({

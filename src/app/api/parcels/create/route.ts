@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyNewParcelRequest } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,6 +79,11 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Notify nearby parcel drivers (async, don't wait)
+    notifyNewParcelRequest(parcelRequest.id, pickupLat, pickupLng).catch((error) => {
+      console.error('Error sending parcel request notifications:', error);
     });
 
     return NextResponse.json(

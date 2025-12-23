@@ -18,6 +18,7 @@ model User {
   idDocumentUrl     String?
   licenseUrl        String?
   isVerified        Boolean  @default(false)
+  pushToken         String?  // FCM/APNS token for push notifications
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

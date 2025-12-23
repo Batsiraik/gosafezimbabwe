@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { LogOut, Settings, Bell, Car, Bike, MapPin, GraduationCap, Bus, Search, Clock, Wrench, Ticket, History as HistoryIcon, Briefcase, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { initializePushNotifications, setupPushNotificationListeners } from '@/lib/push-notifications';
 
 interface User {
   id: string;
@@ -133,6 +134,57 @@ export default function DashboardPage() {
     }
   }, [router, fetchCities, fetchWhatsappNumber, checkActiveCityToCityRequest, checkActiveServiceRequest]);
 
+  // Initialize push notifications (only in native app)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      // Initialize push notifications
+      initializePushNotifications().then((token) => {
+        if (token) {
+          console.log('Push notification token received:', token);
+          // TODO: Send token to your backend to store for this user
+          // Example: await fetch('/api/users/push-token', { method: 'POST', body: JSON.stringify({ token: token.value }) });
+        }
+      });
+
+      // Setup event listeners
+      setupPushNotificationListeners(
+        async (token) => {
+          console.log('Push token:', token);
+          // Store token in backend
+          try {
+            const authToken = localStorage.getItem('nexryde_token');
+            if (authToken) {
+              const response = await fetch('/api/users/push-token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ pushToken: token.value }),
+              });
+              if (response.ok) {
+                console.log('Push token stored successfully');
+              }
+            }
+          } catch (error) {
+            console.error('Error storing push token:', error);
+          }
+        },
+        (notification) => {
+          // Show notification when app is in foreground
+          toast(notification.title || 'New notification', {
+            icon: '🔔',
+            duration: 4000,
+          });
+        },
+        (action) => {
+          // Handle notification tap
+          console.log('Notification tapped:', action);
+          // TODO: Navigate to relevant page based on notification data
+        }
+      );
+    }
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem('nexryde_token');

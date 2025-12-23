@@ -127,6 +127,8 @@ export default function ParcelDriverRegisterPage() {
       }
 
       toast.success('Registration submitted! Waiting for verification...');
+      const { setUserMode } = require('@/lib/user-mode');
+      setUserMode('parcel');
       router.push('/driver/parcel/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);

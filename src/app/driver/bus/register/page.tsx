@@ -113,6 +113,8 @@ export default function BusProviderRegisterPage() {
       }
 
       toast.success('Registration submitted! Waiting for verification...');
+      const { setUserMode } = require('@/lib/user-mode');
+      setUserMode('bus');
       router.push('/driver/bus/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);

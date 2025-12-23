@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyNewRideRequest } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,6 +71,11 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+    });
+
+    // Notify nearby drivers (async, don't wait)
+    notifyNewRideRequest(rideRequest.id, pickupLat, pickupLng).catch((error) => {
+      console.error('Error sending ride request notifications:', error);
     });
 
     return NextResponse.json(

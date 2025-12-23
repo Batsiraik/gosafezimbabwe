@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyParcelBidAccepted } from '@/lib/notifications';
 
 // POST /api/parcels/bids/accept - Accept a driver's bid
 export async function POST(request: NextRequest) {
@@ -147,6 +148,15 @@ export async function POST(request: NextRequest) {
       });
 
       return { acceptedBid, updatedParcel };
+    });
+
+    // Notify driver that their bid was accepted (async, don't wait)
+    notifyParcelBidAccepted(
+      bid.driver.user.id,
+      bid.parcelRequest.id,
+      result.updatedParcel.user.fullName
+    ).catch((error) => {
+      console.error('Error sending parcel bid accepted notification:', error);
     });
 
     return NextResponse.json({

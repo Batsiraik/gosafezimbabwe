@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "1002887776253",
+    "firebase_url": "https://gosafe-8da5a-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "gosafe-8da5a",
+    "storage_bucket": "gosafe-8da5a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1002887776253:android:a82c209651e5003e0d3b94",
+        "android_client_info": {
+          "package_name": "com.gosafeappzw.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1002887776253-7v2ejimbaqn46am1642oloahafvm3cm5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.gosafeappzw.app",
+            "certificate_hash": "1bc27345c23ce2c5d270a81b334ba91f2c2798e6"
+          }
+        },
+        {
+          "client_id": "1002887776253-lcpmome2v2pf556fc0f6fhf0afh7sk5j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIwTqFGxKTephK_FH1Y4OI3zqe4qtv4Zg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1002887776253-lcpmome2v2pf556fc0f6fhf0afh7sk5j.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1002887776253-02rm7rghfubhs1bjpjc94l12li6r1ep7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.gosafe.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

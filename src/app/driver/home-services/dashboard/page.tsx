@@ -133,6 +133,9 @@ export default function HomeServiceProviderDashboardPage() {
 
   useEffect(() => {
     checkProviderStatus();
+    // Set user mode to home-services when this dashboard loads
+    const { setUserMode } = require('@/lib/user-mode');
+    setUserMode('home-services');
   }, [checkProviderStatus]);
 
   // Redirect to registration if no provider profile exists
@@ -456,7 +459,11 @@ export default function HomeServiceProviderDashboardPage() {
                 <Settings className="w-5 h-5" />
               </button>
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => {
+                  const { clearUserMode } = require('@/lib/user-mode');
+                  clearUserMode();
+                  router.push('/dashboard');
+                }}
                 className="bg-nexryde-yellow/20 hover:bg-nexryde-yellow/30 text-nexryde-yellow border border-nexryde-yellow/30 px-4 py-2 rounded-xl font-semibold transition-colors flex items-center space-x-2"
               >
                 <User className="w-4 h-4" />

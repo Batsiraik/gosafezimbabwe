@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyCityToCityMatch } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the match request
+    // Get the match request with cities
     const matchRequest = await prisma.cityToCityRequest.findUnique({
       where: { id: matchRequestId },
       include: {
@@ -65,6 +66,16 @@ export async function POST(request: NextRequest) {
             fullName: true,
             phone: true,
             profilePictureUrl: true,
+          },
+        },
+        fromCity: {
+          select: {
+            name: true,
+          },
+        },
+        toCity: {
+          select: {
+            name: true,
           },
         },
       },
@@ -181,6 +192,18 @@ export async function POST(request: NextRequest) {
     // - matchRequest is the passenger
     // - match.passengerRequest is the passenger's request
     // - match.driverRequest is the driver's request
+
+    // Notify passenger that they have a match (async, don't wait)
+    if (matchRequest.fromCity && matchRequest.toCity) {
+      notifyCityToCityMatch(
+        matchRequest.user.id,
+        match.driverRequest.user.fullName,
+        matchRequest.fromCity.name,
+        matchRequest.toCity.name
+      ).catch((error) => {
+        console.error('Error sending city-to-city match notification:', error);
+      });
+    }
 
     return NextResponse.json(
       {

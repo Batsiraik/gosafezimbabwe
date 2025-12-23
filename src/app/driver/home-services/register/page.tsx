@@ -158,6 +158,8 @@ export default function HomeServiceProviderRegisterPage() {
       }
 
       toast.success('Registration submitted! Waiting for verification...');
+      const { setUserMode } = require('@/lib/user-mode');
+      setUserMode('home-services');
       router.push('/driver/home-services/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);

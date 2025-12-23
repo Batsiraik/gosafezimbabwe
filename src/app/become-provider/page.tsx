@@ -61,10 +61,14 @@ export default function BecomeProviderPage() {
         const data = await response.json();
         if (data.driver && data.driver.isVerified) {
           // Driver is verified, go to dashboard
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('taxi');
           router.push('/driver/taxi/dashboard');
           return;
         } else if (data.driver && !data.driver.isVerified) {
           // Driver exists but not verified, go to dashboard (will show pending message)
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('taxi');
           router.push('/driver/taxi/dashboard');
           return;
         }
@@ -99,9 +103,13 @@ export default function BecomeProviderPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.driver && data.driver.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('parcel');
           router.push('/driver/parcel/dashboard');
           return;
         } else if (data.driver && !data.driver.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('parcel');
           router.push('/driver/parcel/dashboard');
           return;
         }
@@ -134,9 +142,13 @@ export default function BecomeProviderPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.provider && data.provider.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('home-services');
           router.push('/driver/home-services/dashboard');
           return;
         } else if (data.provider && !data.provider.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('home-services');
           router.push('/driver/home-services/dashboard');
           return;
         }
@@ -169,9 +181,13 @@ export default function BecomeProviderPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.provider && data.provider.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('bus');
           router.push('/driver/bus/dashboard');
           return;
         } else if (data.provider && !data.provider.isVerified) {
+          const { setUserMode } = require('@/lib/user-mode');
+          setUserMode('bus');
           router.push('/driver/bus/dashboard');
           return;
         }

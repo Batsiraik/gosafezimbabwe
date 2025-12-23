@@ -114,6 +114,9 @@ export default function TaxiDriverDashboardPage() {
 
   useEffect(() => {
     checkDriverStatus();
+    // Set user mode to taxi when this dashboard loads
+    const { setUserMode } = require('@/lib/user-mode');
+    setUserMode('taxi');
   }, [checkDriverStatus]);
 
   // Redirect to registration if no driver profile exists
@@ -514,7 +517,11 @@ export default function TaxiDriverDashboardPage() {
                 <Settings className="w-5 h-5" />
               </button>
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => {
+                  const { clearUserMode } = require('@/lib/user-mode');
+                  clearUserMode();
+                  router.push('/dashboard');
+                }}
                 className="bg-nexryde-yellow/20 hover:bg-nexryde-yellow/30 text-nexryde-yellow border border-nexryde-yellow/30 px-4 py-2 rounded-xl font-semibold transition-colors flex items-center space-x-2"
               >
                 <User className="w-4 h-4" />
@@ -591,7 +598,11 @@ export default function TaxiDriverDashboardPage() {
                 <Settings className="w-5 h-5" />
               </button>
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => {
+                  const { clearUserMode } = require('@/lib/user-mode');
+                  clearUserMode();
+                  router.push('/dashboard');
+                }}
                 className="bg-nexryde-yellow/20 hover:bg-nexryde-yellow/30 text-nexryde-yellow border border-nexryde-yellow/30 px-4 py-2 rounded-xl font-semibold transition-colors flex items-center space-x-2"
               >
                 <User className="w-4 h-4" />

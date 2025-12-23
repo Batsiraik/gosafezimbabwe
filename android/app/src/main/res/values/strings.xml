@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GO SAFE</string>
+    <string name="title_activity_main">GO SAFE</string>
+    <string name="package_name">com.gosafeappzw.app</string>
+    <string name="custom_url_scheme">com.gosafeappzw.app</string>
+</resources>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MapPin, Navigation, Plus, Minus, RotateCcw } from 'lucide-react';
 import { GoogleMap, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { Geolocation } from '@capacitor/geolocation';
 import toast from 'react-hot-toast';
 import ActiveRideModal from '@/components/ActiveRideModal';
 
@@ -52,7 +53,7 @@ export default function RidePage() {
   const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentMarkerRef = useRef<google.maps.Marker | null>(null);
   const destinationMarkerRef = useRef<google.maps.Marker | null>(null);
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef = useRef<number | string | null>(null);
   const locationLockRef = useRef(false);
   const gpsFallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const accuracyCircleRef = useRef<google.maps.Circle | null>(null);
@@ -133,26 +134,22 @@ export default function RidePage() {
     }
   }, []);
 
-  // Get current location with improved accuracy handling
-  const getCurrentLocation = useCallback(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast.error('Geolocation is not supported. Please enter your location manually.');
-      setIsLoading(false);
-      const defaultLoc = { lat: -17.8292, lng: 31.0522 };
-      setCurrentLocation(defaultLoc);
-      setMapCenter(defaultLoc);
-      // Get address for default location
-      reverseGeocode(defaultLoc);
-      return;
-    }
-
+  // Get current location with improved accuracy handling using Capacitor native GPS
+  const getCurrentLocation = useCallback(async () => {
+    // Check if we're in a native app (Capacitor) or web browser
+    const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+    
     setIsLoading(true);
     setGpsAccuracy(null);
     locationLockRef.current = false;
 
     // stop previous watch
     if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+      if (isNative) {
+        Geolocation.clearWatch({ id: watchIdRef.current.toString() });
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
       watchIdRef.current = null;
     }
 
@@ -169,7 +166,7 @@ export default function RidePage() {
     const MINIMUM_ACCURACY = 150;     // Max we'll accept for ride booking
     const MAX_WAIT_MS = 30000;        // Wait up to 30 seconds for good GPS
 
-    let bestPos: GeolocationPosition | null = null;
+    let bestPos: { latitude: number; longitude: number; accuracy?: number } | null = null;
     let accuracyImprovements = 0;
     
     // Update accuracy status in UI
@@ -180,8 +177,7 @@ export default function RidePage() {
       }
     };
 
-    const acceptPosition = (pos: GeolocationPosition, final = false) => {
-      const { latitude, longitude, accuracy } = pos.coords;
+    const acceptPosition = (latitude: number, longitude: number, accuracy?: number, final = false) => {
       const loc = { lat: latitude, lng: longitude };
       
       setCurrentLocation(loc);
@@ -207,7 +203,11 @@ export default function RidePage() {
         }
         setIsLoading(false);
         if (watchIdRef.current !== null) {
-          navigator.geolocation.clearWatch(watchIdRef.current);
+          if (isNative) {
+            Geolocation.clearWatch({ id: watchIdRef.current.toString() });
+          } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+          }
           watchIdRef.current = null;
         }
         
@@ -222,13 +222,12 @@ export default function RidePage() {
       }
     };
 
-    const onUpdate = (pos: GeolocationPosition) => {
-      const accuracy = pos.coords.accuracy;
-      const isNewBest = !bestPos || (typeof accuracy === 'number' && accuracy < bestPos.coords.accuracy);
+    const onUpdate = (latitude: number, longitude: number, accuracy?: number) => {
+      const isNewBest = !bestPos || (typeof accuracy === 'number' && bestPos.accuracy && accuracy < bestPos.accuracy);
 
       // Store best position
       if (isNewBest) {
-        bestPos = pos;
+        bestPos = { latitude, longitude, accuracy };
         accuracyImprovements++;
         
         // Show accuracy improvements
@@ -252,7 +251,7 @@ export default function RidePage() {
         
         // Only update map for positions with good accuracy (60m max for live updates)
         if (accuracy <= GOOD_ACCURACY) {
-          acceptPosition(pos, false);
+          acceptPosition(latitude, longitude, accuracy, false);
         }
         
         // Lock if we get excellent or good accuracy
@@ -260,33 +259,32 @@ export default function RidePage() {
           if (accuracy <= EXCELLENT_ACCURACY) {
             locationLockRef.current = true;
             updateAccuracyStatus('Location locked - Excellent', accuracy);
-            acceptPosition(pos, true);
+            acceptPosition(latitude, longitude, accuracy, true);
           } else if (accuracy <= GOOD_ACCURACY && accuracyImprovements >= 3) {
             // Wait for at least 3 improvements before locking with good accuracy
             locationLockRef.current = true;
             updateAccuracyStatus('Location locked - Good', accuracy);
-            acceptPosition(pos, true);
+            acceptPosition(latitude, longitude, accuracy, true);
           }
         }
+      } else {
+        // No accuracy info, but still update position
+        acceptPosition(latitude, longitude, undefined, false);
       }
     };
 
-    const onError = (error: GeolocationPositionError) => {
+    const handleError = (error: any) => {
       console.error('GPS Error:', error);
       
       let msg = '';
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          msg = 'Location access denied. Please enable location services in browser settings.';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          msg = 'Location unavailable. Please check your GPS/WiFi and try again.';
-          break;
-        case error.TIMEOUT:
-          msg = 'GPS timeout. Taking longer than expected. Try moving to an open area.';
-          break;
-        default:
-          msg = 'GPS error. Please try again.';
+      if (error?.code === 1 || error?.message?.includes('permission')) {
+        msg = 'Location access denied. Please enable location services in app settings.';
+      } else if (error?.code === 2 || error?.message?.includes('unavailable')) {
+        msg = 'Location unavailable. Please check your GPS/WiFi and try again.';
+      } else if (error?.code === 3 || error?.message?.includes('timeout')) {
+        msg = 'GPS timeout. Taking longer than expected. Try moving to an open area.';
+      } else {
+        msg = 'GPS error. Please try again.';
       }
       
       toast.error(msg);
@@ -299,7 +297,11 @@ export default function RidePage() {
       reverseGeocode(defaultLoc);
       
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        if (isNative) {
+          Geolocation.clearWatch({ id: watchIdRef.current.toString() });
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        }
         watchIdRef.current = null;
       }
       
@@ -320,41 +322,112 @@ export default function RidePage() {
     updateAccuracyStatus('Starting GPS...');
     retryCountRef.current = 0; // Reset retry counter
 
-    // 1) Try quick first fix (cached location)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const acc = pos.coords.accuracy;
-        if (acc && acc <= ACCEPTABLE_ACCURACY) {
-          updateAccuracyStatus('Using cached location', acc);
-          acceptPosition(pos, false);
+    // Use Capacitor Geolocation if in native app, otherwise fallback to browser API
+    if (isNative) {
+      try {
+        // Request permissions first
+        const permissionStatus = await Geolocation.checkPermissions();
+        if (permissionStatus.location !== 'granted') {
+          const requestResult = await Geolocation.requestPermissions();
+          if (requestResult.location !== 'granted') {
+            handleError({ code: 1, message: 'Permission denied' });
+            return;
+          }
         }
-      },
-      null,
-      {
-        enableHighAccuracy: false,
-        maximumAge: 60000, // Accept up to 1 minute old cached location
-        timeout: 5000
-      }
-    );
 
-    // 2) Start high accuracy watch for continuous improvement
-    watchIdRef.current = navigator.geolocation.watchPosition(onUpdate, onError, {
-      enableHighAccuracy: true,
-      maximumAge: 0, // Always get fresh position
-      timeout: 30000
-    });
+        // 1) Try quick first fix (cached location)
+        try {
+          const cachedPos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: false,
+            maximumAge: 60000,
+            timeout: 5000,
+          });
+          const acc = cachedPos.coords.accuracy;
+          if (acc && acc <= ACCEPTABLE_ACCURACY) {
+            updateAccuracyStatus('Using cached location', acc);
+            acceptPosition(cachedPos.coords.latitude, cachedPos.coords.longitude, acc, false);
+          }
+        } catch (e) {
+          // Ignore cached location errors
+        }
+
+        // 2) Start high accuracy watch for continuous improvement
+        const watchId = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 30000,
+          },
+          (position, err) => {
+            if (err) {
+              handleError(err);
+            } else if (position) {
+              onUpdate(
+                position.coords.latitude,
+                position.coords.longitude,
+                position.coords.accuracy
+              );
+            }
+          }
+        );
+        watchIdRef.current = watchId as any;
+      } catch (error) {
+        handleError(error);
+      }
+    } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      // Fallback to browser geolocation for web
+      const onUpdateBrowser = (pos: GeolocationPosition) => {
+        onUpdate(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+      };
+
+      const onErrorBrowser = (error: GeolocationPositionError) => {
+        handleError(error);
+      };
+
+      // 1) Try quick first fix (cached location)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const acc = pos.coords.accuracy;
+          if (acc && acc <= ACCEPTABLE_ACCURACY) {
+            updateAccuracyStatus('Using cached location', acc);
+            acceptPosition(pos.coords.latitude, pos.coords.longitude, acc, false);
+          }
+        },
+        null,
+        {
+          enableHighAccuracy: false,
+          maximumAge: 60000,
+          timeout: 5000,
+        }
+      );
+
+      // 2) Start high accuracy watch for continuous improvement
+      watchIdRef.current = navigator.geolocation.watchPosition(onUpdateBrowser, onErrorBrowser, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 30000,
+      });
+    } else {
+      toast.error('Geolocation is not supported. Please enter your location manually.');
+      setIsLoading(false);
+      const defaultLoc = { lat: -17.8292, lng: 31.0522 };
+      setCurrentLocation(defaultLoc);
+      setMapCenter(defaultLoc);
+      reverseGeocode(defaultLoc);
+      return;
+    }
 
     // 3) Fallback timer with improved logic
     gpsFallbackTimerRef.current = setTimeout(() => {
       if (locationLockRef.current) return; // Already got good accuracy
 
-      if (bestPos && typeof bestPos.coords.accuracy === 'number') {
-        const acc = bestPos.coords.accuracy;
+      if (bestPos && typeof bestPos.accuracy === 'number') {
+        const acc = bestPos.accuracy;
 
         if (acc <= MINIMUM_ACCURACY) {
           // Accept the best we got
           locationLockRef.current = true;
-          acceptPosition(bestPos, true);
+          acceptPosition(bestPos.latitude, bestPos.longitude, acc, true);
           
           if (acc > GOOD_ACCURACY) {
             toast(`Using best available location (${Math.round(acc)}m). For better accuracy:`, {
@@ -383,13 +456,16 @@ export default function RidePage() {
           
           // Still set location so user can see and adjust
           if (bestPos) {
-            const { latitude, longitude } = bestPos.coords;
-            const loc = { lat: latitude, lng: longitude };
+            const loc = { lat: bestPos.latitude, lng: bestPos.longitude };
             setCurrentLocation(loc);
             setMapCenter(loc);
             reverseGeocode(loc);
           }
         }
+      } else if (bestPos) {
+        // Position without accuracy info - still use it
+        locationLockRef.current = true;
+        acceptPosition(bestPos.latitude, bestPos.longitude, undefined, true);
       } else {
         // No position at all
         toast.error('No GPS signal detected. Please check permissions and try again.');
@@ -583,7 +659,8 @@ export default function RidePage() {
       // Get address for default location
       reverseGeocode(defaultLoc);
       // Try to get GPS location in background
-      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+      if (isNative || (typeof navigator !== 'undefined' && navigator.geolocation)) {
         getCurrentLocation();
       }
     }
@@ -602,8 +679,13 @@ export default function RidePage() {
       if (autocompleteTimeoutRef.current) {
         clearTimeout(autocompleteTimeoutRef.current);
       }
-      if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+      if (watchIdRef.current !== null) {
+        const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+        if (isNative) {
+          Geolocation.clearWatch({ id: watchIdRef.current.toString() });
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        }
         watchIdRef.current = null;
       }
       if (gpsFallbackTimerRef.current) {
@@ -616,8 +698,13 @@ export default function RidePage() {
   // Handle current location input with autocomplete
   const handleCurrentLocationInput = async (value: string) => {
     // If user is typing manually, stop GPS updates
-    if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+    if (watchIdRef.current !== null) {
+      const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+      if (isNative) {
+        Geolocation.clearWatch({ id: watchIdRef.current.toString() });
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
       watchIdRef.current = null;
     }
     if (gpsFallbackTimerRef.current) {

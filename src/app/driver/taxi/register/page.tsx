@@ -123,6 +123,8 @@ export default function TaxiDriverRegisterPage() {
       }
 
       toast.success('Registration submitted! Your documents are under review.');
+      const { setUserMode } = require('@/lib/user-mode');
+      setUserMode('taxi');
       router.push('/driver/taxi/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);
