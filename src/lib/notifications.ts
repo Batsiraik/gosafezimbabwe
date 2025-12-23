@@ -9,19 +9,34 @@ async function sendNotificationToUser(
   payload: PushNotificationPayload
 ): Promise<boolean> {
   try {
+    console.log(`[NOTIFICATION] Attempting to send notification to user: ${userId}`);
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { pushToken: true },
+      select: { pushToken: true, fullName: true, phone: true },
     });
 
-    if (!user || !user.pushToken) {
-      console.log(`User ${userId} has no push token`);
+    if (!user) {
+      console.error(`[NOTIFICATION] User ${userId} not found in database`);
       return false;
     }
 
-    return await sendPushNotification(user.pushToken, payload);
+    if (!user.pushToken) {
+      console.warn(`[NOTIFICATION] User ${user.fullName} (${user.phone}) has no push token stored`);
+      return false;
+    }
+
+    console.log(`[NOTIFICATION] Sending to user ${user.fullName} (${user.phone}), token: ${user.pushToken.substring(0, 20)}...`);
+    const result = await sendPushNotification(user.pushToken, payload);
+    
+    if (result) {
+      console.log(`[NOTIFICATION] ✅ Successfully sent notification to ${user.fullName}`);
+    } else {
+      console.error(`[NOTIFICATION] ❌ Failed to send notification to ${user.fullName}`);
+    }
+    
+    return result;
   } catch (error) {
-    console.error('Error sending notification to user:', error);
+    console.error(`[NOTIFICATION] Error sending notification to user ${userId}:`, error);
     return false;
   }
 }
@@ -53,6 +68,8 @@ async function findDriversWithinRadius(
   serviceType: 'taxi' | 'parcel' = 'taxi'
 ): Promise<string[]> {
   try {
+    console.log(`[NOTIFICATION] Finding ${serviceType} drivers within ${radiusKm}km of (${lat}, ${lng})`);
+    
     // Get all online drivers of the specified service type
     const drivers = await prisma.driver.findMany({
       where: {
@@ -67,8 +84,16 @@ async function findDriversWithinRadius(
         userId: true,
         currentLat: true,
         currentLng: true,
+        user: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
       },
     });
+
+    console.log(`[NOTIFICATION] Found ${drivers.length} online ${serviceType} drivers with push tokens`);
 
     // Calculate distance and filter drivers within radius
     const driversInRange: string[] = [];
@@ -82,15 +107,23 @@ async function findDriversWithinRadius(
           driver.currentLng
         );
 
+        console.log(`[NOTIFICATION] Driver ${driver.user.fullName} is ${distance.toFixed(2)}km away`);
+
         if (distance <= radiusKm) {
           driversInRange.push(driver.userId);
+          console.log(`[NOTIFICATION] ✅ Driver ${driver.user.fullName} (${driver.user.phone}) is within range`);
+        } else {
+          console.log(`[NOTIFICATION] ⚠️ Driver ${driver.user.fullName} is too far (${distance.toFixed(2)}km > ${radiusKm}km)`);
         }
+      } else {
+        console.warn(`[NOTIFICATION] Driver ${driver.user.fullName} has no location data`);
       }
     }
 
+    console.log(`[NOTIFICATION] Total drivers in range: ${driversInRange.length}`);
     return driversInRange;
   } catch (error) {
-    console.error('Error finding drivers within radius:', error);
+    console.error('[NOTIFICATION] Error finding drivers within radius:', error);
     return [];
   }
 }
@@ -121,12 +154,17 @@ export async function notifyNewRideRequest(
   pickupLat: number,
   pickupLng: number
 ): Promise<void> {
+  console.log(`[NOTIFICATION] ===== Starting notification for ride request ${rideRequestId} =====`);
+  console.log(`[NOTIFICATION] Pickup location: (${pickupLat}, ${pickupLng})`);
+  
   const driverIds = await findDriversWithinRadius(pickupLat, pickupLng, 5, 'taxi');
   
   if (driverIds.length === 0) {
-    console.log('No drivers found within 5km for ride request');
+    console.warn(`[NOTIFICATION] ⚠️ No drivers found within 5km for ride request ${rideRequestId}`);
     return;
   }
+
+  console.log(`[NOTIFICATION] Found ${driverIds.length} drivers to notify for ride request ${rideRequestId}`);
 
   const payload: PushNotificationPayload = {
     title: '🚗 New Ride Request',
@@ -139,8 +177,10 @@ export async function notifyNewRideRequest(
     priority: 'high',
   };
 
-  await sendNotificationToUsers(driverIds, payload);
-  console.log(`Sent new ride request notification to ${driverIds.length} drivers`);
+  const result = await sendNotificationToUsers(driverIds, payload);
+  console.log(`[NOTIFICATION] ===== Notification result for ride ${rideRequestId} =====`);
+  console.log(`[NOTIFICATION] Success: ${result.success}, Failed: ${result.failed}`);
+  console.log(`[NOTIFICATION] ===== End notification for ride request ${rideRequestId} =====`);
 }
 
 /**

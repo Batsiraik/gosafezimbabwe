@@ -20,15 +20,19 @@ export async function sendPushNotification(
   payload: PushNotificationPayload
 ): Promise<boolean> {
   try {
+    console.log(`[FCM] Attempting to send notification to token: ${pushToken.substring(0, 20)}...`);
+    console.log(`[FCM] Notification payload:`, { title: payload.title, body: payload.body });
+    
     // Ensure Firebase is initialized
     initializeFirebaseAdmin();
     const admin = getFirebaseAdmin();
     
     if (!admin) {
-      console.error('Firebase Admin not initialized. Check FIREBASE_SERVICE_ACCOUNT environment variable.');
+      console.error('[FCM] ❌ Firebase Admin not initialized. Check FIREBASE_SERVICE_ACCOUNT environment variable.');
       return false;
     }
     
+    console.log('[FCM] ✅ Firebase Admin initialized successfully');
     const messaging = admin.messaging();
 
     const message: admin.messaging.Message = {
@@ -66,17 +70,25 @@ export async function sendPushNotification(
       },
     };
 
+    console.log('[FCM] Sending message to FCM...');
     const response = await messaging.send(message);
-    console.log('Successfully sent push notification:', response);
+    console.log('[FCM] ✅ Successfully sent push notification. Message ID:', response);
     return true;
   } catch (error: any) {
-    console.error('Error sending push notification:', error);
+    console.error('[FCM] ❌ Error sending push notification:', error);
+    console.error('[FCM] Error code:', error.code);
+    console.error('[FCM] Error message:', error.message);
     
     // Handle invalid token errors
     if (error.code === 'messaging/invalid-registration-token' || 
         error.code === 'messaging/registration-token-not-registered') {
-      console.warn('Invalid or unregistered token, should remove from database');
+      console.warn('[FCM] ⚠️ Invalid or unregistered token, should remove from database');
+      console.warn('[FCM] Token:', pushToken.substring(0, 30) + '...');
       // TODO: Remove invalid token from database
+    } else if (error.code === 'messaging/authentication-error') {
+      console.error('[FCM] ❌ Firebase authentication error - check FIREBASE_SERVICE_ACCOUNT');
+    } else if (error.code === 'messaging/server-unavailable') {
+      console.error('[FCM] ❌ FCM server unavailable - temporary error');
     }
     
     return false;

@@ -74,8 +74,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Notify nearby drivers (async, don't wait)
+    console.log(`[RIDE CREATE] Ride request ${rideRequest.id} created, triggering notifications...`);
     notifyNewRideRequest(rideRequest.id, pickupLat, pickupLng).catch((error) => {
-      console.error('Error sending ride request notifications:', error);
+      console.error('[RIDE CREATE] Error sending ride request notifications:', error);
+      console.error('[RIDE CREATE] Error stack:', error.stack);
     });
 
     return NextResponse.json(
