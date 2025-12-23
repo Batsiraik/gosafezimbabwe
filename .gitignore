@@ -38,6 +38,13 @@ yarn-error.log*
 firebase-service-account*.json
 *service-account*.json
 
+# Android keystore files (NEVER commit these!)
+*.jks
+*.keystore
+android/keystore.properties
+android/app/*.jks
+android/app/*.keystore
+
 # vercel
 .vercel
 

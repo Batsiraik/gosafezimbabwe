@@ -574,7 +574,7 @@ export default function DashboardPage() {
               <div className="center">
                 <div className="center-logo">
                   <Image 
-                    src="/logologo.png" 
+                    src="/logo.png" 
                     alt="GO SAFE Logo" 
                     width={200} 
                     height={200} 
