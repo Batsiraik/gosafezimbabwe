@@ -7,6 +7,7 @@ import { Bike, MapPin, DollarSign, Clock, CheckCircle, Loader2, Plus, Minus, Nav
 import toast from 'react-hot-toast';
 import { getAccurateLocation } from '@/lib/utils/geolocation';
 import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '@/lib/background-location';
+import { initializePushNotifications, setupPushNotificationListeners } from '@/lib/push-notifications';
 
 interface PendingParcel {
   id: string;
@@ -116,6 +117,59 @@ export default function ParcelDriverDashboardPage() {
     const { setUserMode } = require('@/lib/user-mode');
     setUserMode('parcel');
   }, [checkDriverStatus]);
+
+  // Initialize push notifications for parcel drivers
+  useEffect(() => {
+    if (typeof window !== 'undefined' && driver) {
+      console.log('[PARCEL DRIVER] Initializing push notifications...');
+      
+      initializePushNotifications().then((token) => {
+        if (token) {
+          console.log('[PARCEL DRIVER] Push notification token received:', token);
+        }
+      });
+
+      setupPushNotificationListeners(
+        async (token) => {
+          console.log('[PARCEL DRIVER] [PUSH TOKEN] Received token:', token);
+          
+          if (!token.value || token.value.length < 50) {
+            console.error('[PARCEL DRIVER] [PUSH TOKEN] ❌ Invalid token');
+            return;
+          }
+          
+          try {
+            const authToken = localStorage.getItem('nexryde_token');
+            if (authToken) {
+              const response = await fetch('/api/users/push-token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ pushToken: token.value }),
+              });
+              
+              if (response.ok) {
+                console.log('[PARCEL DRIVER] [PUSH TOKEN] ✅ Token stored successfully');
+                toast.success('Notifications enabled!');
+              } else {
+                console.error('[PARCEL DRIVER] [PUSH TOKEN] ❌ Failed to store token');
+              }
+            }
+          } catch (error) {
+            console.error('[PARCEL DRIVER] [PUSH TOKEN] ❌ Error:', error);
+          }
+        },
+        (notification) => {
+          toast(notification.title || 'New notification', { icon: '🔔', duration: 4000 });
+        },
+        (action) => {
+          console.log('[PARCEL DRIVER] Notification tapped:', action);
+        }
+      );
+    }
+  }, [driver]);
 
   // Redirect to registration if no driver profile exists
   if (!loadingDriver && !driver) {
