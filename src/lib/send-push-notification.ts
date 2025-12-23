@@ -84,8 +84,9 @@ export async function sendPushNotification(
       android: {
         priority: payload.priority === 'high' ? 'high' : 'normal',
         notification: {
-          sound: payload.sound || 'notification_sound',
-          channelId: 'default',
+          // Don't specify sound here - let the notification channel handle it
+          // The channel created in MainActivity already has the sound configured
+          channelId: 'default', // Must match the channel created in MainActivity
           priority: 'high',
         },
       },
