@@ -239,7 +239,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-nexryde-yellow-darker">
+    <div className="min-h-screen bg-nexryde-yellow-darker overflow-hidden md:overflow-auto">
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -275,34 +275,35 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-20">
+      {/* Main Content - Mobile: Fit on one screen, Desktop: Normal spacing */}
+      <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-2 md:py-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="max-w-4xl mx-auto"
+          className="max-w-4xl mx-auto flex flex-col md:block"
+          style={{ minHeight: 'calc(100vh - 80px)' }}
         >
-          {/* Greeting Section */}
+          {/* Greeting Section - Compact on mobile */}
           {user && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-center mb-8"
+              className="text-center mb-2 md:mb-8"
             >
-              <h2 className="text-white/90 text-xl md:text-2xl font-medium">
-              👋 Hi {user.fullName?.split(' ')[0] || user.fullName || 'there'}! 😅✨
+              <h2 className="text-white/90 text-base md:text-xl lg:text-2xl font-medium">
+              👋 Hi {user.fullName?.split(' ')[0] || user.fullName || 'there'}! ✨
               </h2>
             </motion.div>
           )}
 
-          {/* Active City-to-City Request */}
+          {/* Active City-to-City Request - Hidden on mobile to save space */}
           {activeCityToCityRequest && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer"
+              className="mb-2 md:mb-6 bg-white/10 backdrop-blur-lg rounded-2xl p-3 md:p-6 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer hidden md:block"
               onClick={() => {
                 router.push('/city-to-city');
               }}
@@ -340,12 +341,12 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* Active Home Service Request */}
+          {/* Active Home Service Request - Hidden on mobile to save space */}
           {activeServiceRequest && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-6 bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer"
+              className="mb-2 md:mb-6 bg-white/10 backdrop-blur-lg rounded-2xl p-3 md:p-6 shadow-xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer hidden md:block"
               onClick={() => {
                 router.push('/home-services');
               }}
@@ -390,13 +391,15 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Service Modules - Mobile: Circular Wheel Menu */}
-        <div className="mt-8 md:hidden">
+        {/* Service Modules - Mobile: Circular Wheel Menu - Responsive sizing */}
+        <div className="mt-1 md:hidden flex-1 flex items-center justify-center">
           <style jsx>{`
             .wheel-container {
               position: relative;
               width: 100%;
-              height: 400px;
+              height: clamp(280px, 50vh, 350px);
+              min-height: 280px;
+              max-height: 350px;
               display: flex;
               justify-content: flex-start;
               align-items: center;
@@ -408,8 +411,10 @@ export default function DashboardPage() {
               left: -133px;
               top: 50%;
               transform: translateY(-50%);
-              width: 400px;
-              height: 400px;
+              width: clamp(300px, 80vw, 400px);
+              height: clamp(300px, 80vw, 400px);
+              min-width: 300px;
+              min-height: 300px;
               border-radius: 50%;
               background: #696464e6;
               box-shadow: 0 5px 15px rgba(0,0,0,0.3);
@@ -420,8 +425,10 @@ export default function DashboardPage() {
               top: 58%;
               left: 50%;
               transform: translate(-50%, -50%);
-              width: 200px;
-              height: 200px;
+              width: clamp(140px, 40vw, 200px);
+              height: clamp(140px, 40vw, 200px);
+              min-width: 140px;
+              min-height: 140px;
               display: flex;
               justify-content: center;
               align-items: center;
@@ -448,9 +455,11 @@ export default function DashboardPage() {
               position: absolute;
               top: 56%;
               left: 50%;
-              width: 60px;
-              height: 60px;
-              margin: -30px;
+              width: clamp(50px, 12vw, 60px);
+              height: clamp(50px, 12vw, 60px);
+              min-width: 50px;
+              min-height: 50px;
+              margin: calc(-1 * clamp(25px, 6vw, 30px));
               transform-origin: center;
             }
             
@@ -478,8 +487,8 @@ export default function DashboardPage() {
             }
             
             .icon svg {
-              width: 30px;
-              height: 30px;
+              width: clamp(24px, 6vw, 30px);
+              height: clamp(24px, 6vw, 30px);
               stroke: #ffe200 !important;
               color: #ffe200 !important;
               transition: stroke 0.3s ease, color 0.3s ease, transform 0.3s ease;
@@ -492,12 +501,12 @@ export default function DashboardPage() {
             
             .icon-label {
               color: #ffe200 !important;
-              font-size: 10px;
+              font-size: clamp(8px, 2vw, 10px);
               font-weight: bold;
               text-transform: uppercase;
               letter-spacing: 0.5px;
               white-space: nowrap;
-              margin-top: 5px;
+              margin-top: 3px;
               transition: color 0.3s ease;
             }
             
@@ -549,23 +558,23 @@ export default function DashboardPage() {
             }
             
             .ride-container {
-              transform: translate(-50%, -50%) rotate(270deg) translate(160px) rotate(-270deg);
+              transform: translate(-50%, -50%) rotate(270deg) translate(clamp(120px, 30vw, 160px)) rotate(-270deg);
             }
             
             .delivery-container {
-              transform: translate(-50%, -50%) rotate(315deg) translate(160px) rotate(-315deg);
+              transform: translate(-50%, -50%) rotate(315deg) translate(clamp(120px, 30vw, 160px)) rotate(-315deg);
             }
             
             .city-to-city-container {
-              transform: translate(-50%, -50%) rotate(0deg) translate(160px) rotate(0deg);
+              transform: translate(-50%, -50%) rotate(0deg) translate(clamp(120px, 30vw, 160px)) rotate(0deg);
             }
             
             .home-services-container {
-              transform: translate(-50%, -50%) rotate(45deg) translate(160px) rotate(-45deg);
+              transform: translate(-50%, -50%) rotate(45deg) translate(clamp(120px, 30vw, 160px)) rotate(-45deg);
             }
             
             .bus-rank-container {
-              transform: translate(-50%, -50%) rotate(90deg) translate(160px) rotate(-90deg);
+              transform: translate(-50%, -50%) rotate(90deg) translate(clamp(120px, 30vw, 160px)) rotate(-90deg);
             }
           `}</style>
           
@@ -701,21 +710,21 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Become a Service Provider Section */}
+        {/* Become a Service Provider Section - Compact on mobile */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-20 flex flex-col items-center justify-center"
+          className="mt-2 md:mt-20 flex flex-col items-center justify-center pb-2 md:pb-0"
         >
           <button
             onClick={() => router.push('/become-provider')}
-            className="bg-nexryde-yellow/20 hover:bg-nexryde-yellow/30 text-nexryde-yellow border border-nexryde-yellow/30 py-3 px-6 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center space-x-2"
+            className="bg-nexryde-yellow/20 hover:bg-nexryde-yellow/30 text-nexryde-yellow border border-nexryde-yellow/30 py-2 md:py-3 px-4 md:px-6 rounded-xl font-semibold text-sm md:text-base transition-all duration-200 flex items-center justify-center space-x-2"
           >
-            <Briefcase className="w-5 h-5" />
+            <Briefcase className="w-4 h-4 md:w-5 md:h-5" />
             <span>Become a Service Provider</span>
           </button>
-          <p className="mt-4 text-white/70 text-sm text-center max-w-md">
+          <p className="mt-2 md:mt-4 text-white/70 text-xs md:text-sm text-center max-w-md px-4">
             Join as a <span className="text-nexryde-yellow font-medium">taxi driver</span>,{' '}
             <span className="text-nexryde-yellow font-medium">bike delivery guy</span>,{' '}
             <span className="text-nexryde-yellow font-medium">motor mechanic</span>,{' '}
