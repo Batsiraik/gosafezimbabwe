@@ -84,7 +84,35 @@ async function findDriversWithinRadius(
   try {
     console.log(`[NOTIFICATION] Finding ${serviceType} drivers within ${radiusKm}km of (${lat}, ${lng})`);
     
-    // Get all online drivers of the specified service type
+    // First, check all drivers (without pushToken filter) to see what we have
+    const allDrivers = await prisma.driver.findMany({
+      where: {
+        serviceType: serviceType,
+      },
+      select: {
+        userId: true,
+        isVerified: true,
+        isOnline: true,
+        currentLat: true,
+        currentLng: true,
+        user: {
+          select: {
+            fullName: true,
+            phone: true,
+            pushToken: true,
+          },
+        },
+      },
+    });
+
+    console.log(`[NOTIFICATION] Total ${serviceType} drivers in system: ${allDrivers.length}`);
+    
+    // Log each driver's status
+    allDrivers.forEach(driver => {
+      console.log(`[NOTIFICATION] Driver: ${driver.user.fullName} - Verified: ${driver.isVerified}, Online: ${driver.isOnline}, Has Token: ${!!driver.user.pushToken}, Has Location: ${!!(driver.currentLat && driver.currentLng)}`);
+    });
+    
+    // Get all online drivers of the specified service type WITH push tokens
     const drivers = await prisma.driver.findMany({
       where: {
         serviceType: serviceType,
@@ -102,6 +130,7 @@ async function findDriversWithinRadius(
           select: {
             fullName: true,
             phone: true,
+            pushToken: true,
           },
         },
       },
@@ -109,8 +138,19 @@ async function findDriversWithinRadius(
 
     console.log(`[NOTIFICATION] Found ${drivers.length} online ${serviceType} drivers with push tokens`);
 
+    if (drivers.length === 0) {
+      console.warn(`[NOTIFICATION] ⚠️ No drivers found matching criteria:`);
+      console.warn(`[NOTIFICATION]   - serviceType: ${serviceType}`);
+      console.warn(`[NOTIFICATION]   - isVerified: true`);
+      console.warn(`[NOTIFICATION]   - isOnline: true`);
+      console.warn(`[NOTIFICATION]   - has pushToken: true`);
+      return [];
+    }
+
     // Calculate distance and filter drivers within radius
     const driversInRange: string[] = [];
+
+    console.log(`[NOTIFICATION] Checking ${drivers.length} drivers for distance...`);
 
     for (const driver of drivers) {
       if (driver.currentLat && driver.currentLng) {
@@ -121,7 +161,9 @@ async function findDriversWithinRadius(
           driver.currentLng
         );
 
-        console.log(`[NOTIFICATION] Driver ${driver.user.fullName} is ${distance.toFixed(2)}km away`);
+        console.log(`[NOTIFICATION] Driver ${driver.user.fullName} (${driver.user.phone})`);
+        console.log(`[NOTIFICATION]   Location: (${driver.currentLat}, ${driver.currentLng})`);
+        console.log(`[NOTIFICATION]   Distance: ${distance.toFixed(2)}km`);
 
         if (distance <= radiusKm) {
           driversInRange.push(driver.userId);
@@ -130,14 +172,16 @@ async function findDriversWithinRadius(
           console.log(`[NOTIFICATION] ⚠️ Driver ${driver.user.fullName} is too far (${distance.toFixed(2)}km > ${radiusKm}km)`);
         }
       } else {
-        console.warn(`[NOTIFICATION] Driver ${driver.user.fullName} has no location data`);
+        console.warn(`[NOTIFICATION] Driver ${driver.user.fullName} (${driver.user.phone}) has no location data`);
+        console.warn(`[NOTIFICATION]   currentLat: ${driver.currentLat}, currentLng: ${driver.currentLng}`);
       }
     }
 
     console.log(`[NOTIFICATION] Total drivers in range: ${driversInRange.length}`);
     return driversInRange;
   } catch (error) {
-    console.error('[NOTIFICATION] Error finding drivers within radius:', error);
+    console.error('[NOTIFICATION] ❌ Error finding drivers within radius:', error);
+    console.error('[NOTIFICATION] Error details:', error instanceof Error ? error.stack : error);
     return [];
   }
 }
@@ -168,33 +212,46 @@ export async function notifyNewRideRequest(
   pickupLat: number,
   pickupLng: number
 ): Promise<void> {
-  console.log(`[NOTIFICATION] ===== Starting notification for ride request ${rideRequestId} =====`);
-  console.log(`[NOTIFICATION] Pickup location: (${pickupLat}, ${pickupLng})`);
-  
-  const driverIds = await findDriversWithinRadius(pickupLat, pickupLng, 5, 'taxi');
-  
-  if (driverIds.length === 0) {
-    console.warn(`[NOTIFICATION] ⚠️ No drivers found within 5km for ride request ${rideRequestId}`);
-    return;
+  try {
+    console.log(`[NOTIFICATION] ===== Starting notification for ride request ${rideRequestId} =====`);
+    console.log(`[NOTIFICATION] Pickup location: (${pickupLat}, ${pickupLng})`);
+    
+    const driverIds = await findDriversWithinRadius(pickupLat, pickupLng, 5, 'taxi');
+    
+    if (driverIds.length === 0) {
+      console.warn(`[NOTIFICATION] ⚠️ No drivers found within 5km for ride request ${rideRequestId}`);
+      console.warn(`[NOTIFICATION] This could mean:`);
+      console.warn(`[NOTIFICATION]   - No drivers are online`);
+      console.warn(`[NOTIFICATION]   - No drivers have push tokens`);
+      console.warn(`[NOTIFICATION]   - No drivers have location data`);
+      console.warn(`[NOTIFICATION]   - All drivers are too far away (>5km)`);
+      return;
+    }
+
+    console.log(`[NOTIFICATION] Found ${driverIds.length} drivers to notify for ride request ${rideRequestId}`);
+    console.log(`[NOTIFICATION] Driver IDs to notify:`, driverIds);
+
+    const payload: PushNotificationPayload = {
+      title: '🚗 New Ride Request',
+      body: 'A new ride request is available near you!',
+      data: {
+        type: 'new_ride_request',
+        rideRequestId: rideRequestId,
+      },
+      sound: 'notification_sound',
+      priority: 'high',
+    };
+
+    console.log(`[NOTIFICATION] Sending notifications to ${driverIds.length} drivers...`);
+    const result = await sendNotificationToUsers(driverIds, payload);
+    console.log(`[NOTIFICATION] ===== Notification result for ride ${rideRequestId} =====`);
+    console.log(`[NOTIFICATION] Success: ${result.success}, Failed: ${result.failed}`);
+    console.log(`[NOTIFICATION] ===== End notification for ride request ${rideRequestId} =====`);
+  } catch (error) {
+    console.error(`[NOTIFICATION] ❌ CRITICAL ERROR in notifyNewRideRequest:`, error);
+    console.error(`[NOTIFICATION] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
+    throw error; // Re-throw to be caught by caller
   }
-
-  console.log(`[NOTIFICATION] Found ${driverIds.length} drivers to notify for ride request ${rideRequestId}`);
-
-  const payload: PushNotificationPayload = {
-    title: '🚗 New Ride Request',
-    body: 'A new ride request is available near you!',
-    data: {
-      type: 'new_ride_request',
-      rideRequestId: rideRequestId,
-    },
-    sound: 'notification_sound',
-    priority: 'high',
-  };
-
-  const result = await sendNotificationToUsers(driverIds, payload);
-  console.log(`[NOTIFICATION] ===== Notification result for ride ${rideRequestId} =====`);
-  console.log(`[NOTIFICATION] Success: ${result.success}, Failed: ${result.failed}`);
-  console.log(`[NOTIFICATION] ===== End notification for ride request ${rideRequestId} =====`);
 }
 
 /**
