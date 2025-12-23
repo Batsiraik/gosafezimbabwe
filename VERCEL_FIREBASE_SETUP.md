@@ -21,7 +21,11 @@
 
 ## 📋 Your JSON Value
 
-You can paste this directly (it's already properly formatted):
+⚠️ **SECURITY WARNING**: Never commit your service account key to git or share it publicly!
+
+1. Download your service account JSON from Firebase Console
+2. Copy the **entire contents** of the JSON file
+3. Paste it as the value in Vercel (as a single-line JSON string)
 
 ## ✅ Verification
 
