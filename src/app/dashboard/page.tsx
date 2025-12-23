@@ -411,7 +411,7 @@ export default function DashboardPage() {
               width: 400px;
               height: 400px;
               border-radius: 50%;
-              background: #696464e6;
+              background: #424242e6;  
               box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             }
             
