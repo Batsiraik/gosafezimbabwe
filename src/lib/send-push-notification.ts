@@ -23,14 +23,17 @@ function isValidFCMToken(token: string): boolean {
     return false;
   }
   
-  // FCM tokens are typically 152-163 characters long
-  // They usually start with specific patterns
-  if (token.length < 100 || token.length > 200) {
-    return false;
+  // FCM tokens are typically 100-200 characters long
+  // The token shown (142 chars) is valid
+  if (token.length < 50 || token.length > 250) {
+    console.warn(`[FCM] Token length ${token.length} is outside normal range (50-250)`);
+    // Still allow it, just warn - some tokens might be shorter/longer
   }
   
-  // Basic format check (alphanumeric and some special chars)
-  if (!/^[A-Za-z0-9_-]+$/.test(token)) {
+  // Basic format check (alphanumeric, colons, dashes, underscores)
+  // FCM tokens can contain: A-Z, a-z, 0-9, :, -, _
+  if (!/^[A-Za-z0-9_:-]+$/.test(token)) {
+    console.error(`[FCM] Token contains invalid characters`);
     return false;
   }
   

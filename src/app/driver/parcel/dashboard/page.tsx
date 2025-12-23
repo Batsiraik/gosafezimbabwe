@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Bike, MapPin, DollarSign, Clock, CheckCircle, Loader2, Plus, Minus, Navigation, Calendar, XCircle, Settings, User, Power, Phone, ExternalLink, Star, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAccurateLocation } from '@/lib/utils/geolocation';
+import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '@/lib/background-location';
 
 interface PendingParcel {
   id: string;
@@ -411,74 +412,61 @@ export default function ParcelDriverDashboardPage() {
     }
   };
 
-  // Auto-update location every 30 seconds when online with improved accuracy
+  // Background location tracking - continues even when app is closed/minimized
   useEffect(() => {
-    if (!driver || !driver.isVerified || !driver.isOnline) return;
+    if (!driver || !driver.isVerified || !driver.isOnline) {
+      // Stop tracking if driver goes offline or is not verified
+      stopBackgroundLocationTracking();
+      return;
+    }
 
-    let cleanupLocation: (() => void) | null = null;
-    let locationInterval: NodeJS.Timeout | null = null;
+    console.log('[PARCEL DRIVER] Starting background location tracking...');
 
-    const updateLocation = () => {
-      // Cleanup previous watch if exists
-      if (cleanupLocation) {
-        cleanupLocation();
-        cleanupLocation = null;
-      }
-      
-      cleanupLocation = getAccurateLocation({
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
-        minAccuracy: 100, // Accept location within 100 meters
-        maxWaitTime: 15000, // Wait up to 15 seconds for good accuracy
-        onSuccess: async (position) => {
-          try {
-            const token = localStorage.getItem('nexryde_token');
-            if (!token) return;
+    // Start background location tracking
+    startBackgroundLocationTracking(
+      async (lat, lng, accuracy) => {
+        try {
+          const token = localStorage.getItem('nexryde_token');
+          if (!token) return;
 
-            // Send location to API - don't update local state here to avoid extension issues
-            await fetch('/api/driver/parcel/location', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              }),
-            });
+          console.log(`[PARCEL DRIVER] Updating location: (${lat}, ${lng}), accuracy: ${accuracy}m`);
 
+          const response = await fetch('/api/driver/parcel/location', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              lat,
+              lng,
+            }),
+          });
+
+          if (response.ok) {
             setLocationError(null);
             // Refresh pending parcels after location update
             fetchPendingParcels();
-          } catch (error) {
-            // Silently handle errors - don't spam console
-            // Browser extensions may cause errors here, ignore them
+            console.log('[PARCEL DRIVER] ✅ Location updated successfully');
+          } else {
+            console.error('[PARCEL DRIVER] ❌ Failed to update location:', await response.text());
           }
-        },
-        onError: (error) => {
-          // Only set error message for actual geolocation errors, not extension errors
-          if (error.code !== undefined) {
-            setLocationError('Unable to get your location. Please enable GPS.');
-          }
-        },
-      });
-    };
+        } catch (error) {
+          console.error('[PARCEL DRIVER] ❌ Error updating location:', error);
+        }
+      },
+      30000 // Update every 30 seconds
+    ).catch((error) => {
+      console.error('[PARCEL DRIVER] ❌ Failed to start background tracking:', error);
+      setLocationError('Background location tracking unavailable. Using standard tracking.');
+    });
 
-    // Update immediately
-    updateLocation();
-    // Update every 30 seconds
-    locationInterval = setInterval(updateLocation, 30000);
+    // Cleanup on unmount or when driver goes offline
     return () => {
-      if (cleanupLocation) {
-        cleanupLocation();
-      }
-      if (locationInterval) {
-        clearInterval(locationInterval);
-      }
+      console.log('[PARCEL DRIVER] Stopping background location tracking...');
+      stopBackgroundLocationTracking();
     };
-  }, [driver, fetchPendingParcels]);
+  }, [driver?.isOnline, driver?.isVerified, fetchPendingParcels]);
 
   // Fetch data when driver is verified and online
   useEffect(() => {

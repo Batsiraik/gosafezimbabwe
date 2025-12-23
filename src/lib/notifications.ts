@@ -25,11 +25,16 @@ async function sendNotificationToUser(
       return false;
     }
 
-    // Validate token format
-    if (user.pushToken.length < 100 || user.pushToken.length > 200) {
+    // Validate token format (FCM tokens can be 50-250 chars, but typically 100-200)
+    if (user.pushToken.length < 50 || user.pushToken.length > 250) {
       console.error(`[NOTIFICATION] ❌ Invalid token format for user ${user.fullName}. Token length: ${user.pushToken.length}`);
       console.error(`[NOTIFICATION] Token preview: ${user.pushToken.substring(0, 50)}...`);
-      console.error(`[NOTIFICATION] Full token (for debugging): ${user.pushToken}`);
+      return false;
+    }
+    
+    // Check for common invalid patterns
+    if (user.pushToken.includes('YOUR_FCM_TOKEN') || user.pushToken.includes('placeholder')) {
+      console.error(`[NOTIFICATION] ❌ Token appears to be a placeholder, not a real token`);
       return false;
     }
 

@@ -21,11 +21,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Push token is required' }, { status: 400 });
     }
 
-    // Validate token format
-    if (typeof pushToken !== 'string' || pushToken.length < 100 || pushToken.length > 200) {
+    // Validate token format (FCM tokens are typically 100-200 chars, but can vary)
+    if (typeof pushToken !== 'string' || pushToken.length < 50 || pushToken.length > 250) {
       console.warn(`[PUSH TOKEN] Invalid token format received. Length: ${pushToken?.length || 0}`);
       return NextResponse.json({ 
-        error: 'Invalid push token format. Token should be 100-200 characters long.' 
+        error: 'Invalid push token format. Token should be 50-250 characters long.' 
+      }, { status: 400 });
+    }
+    
+    // Check for placeholder values
+    if (pushToken.includes('YOUR_FCM_TOKEN') || pushToken.includes('placeholder')) {
+      console.error(`[PUSH TOKEN] Token appears to be a placeholder`);
+      return NextResponse.json({ 
+        error: 'Invalid token: appears to be a placeholder value.' 
       }, { status: 400 });
     }
 

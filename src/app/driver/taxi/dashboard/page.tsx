@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Car, MapPin, DollarSign, Clock, CheckCircle, Loader2, Plus, Minus, Navigation, Calendar, XCircle, Settings, User, Power, Phone, ExternalLink, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAccurateLocation } from '@/lib/utils/geolocation';
+import { startBackgroundLocationTracking, stopBackgroundLocationTracking } from '@/lib/background-location';
 
 interface PendingRide {
   id: string;
@@ -161,73 +162,62 @@ export default function TaxiDriverDashboardPage() {
     }
   }, [driver]);
 
-  // Get current location and update driver location with improved accuracy
+  // Background location tracking - continues even when app is closed/minimized
   useEffect(() => {
-    if (!driver || !driver.isVerified) return;
+    if (!driver || !driver.isVerified || !driver.isOnline) {
+      // Stop tracking if driver goes offline or is not verified
+      stopBackgroundLocationTracking();
+      return;
+    }
 
-    let cleanupLocation: (() => void) | null = null;
-    let locationInterval: NodeJS.Timeout | null = null;
+    console.log('[DRIVER] Starting background location tracking for driver...');
 
-    const updateLocation = () => {
-      // Cleanup previous watch if exists
-      if (cleanupLocation) {
-        cleanupLocation();
-        cleanupLocation = null;
-      }
-      
-      cleanupLocation = getAccurateLocation({
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
-        minAccuracy: 100, // Accept location within 100 meters
-        maxWaitTime: 15000, // Wait up to 15 seconds for good accuracy
-        onSuccess: async (position) => {
-          try {
-            const token = localStorage.getItem('nexryde_token');
-            if (!token) return;
+    // Start background location tracking
+    startBackgroundLocationTracking(
+      async (lat, lng, accuracy) => {
+        try {
+          const token = localStorage.getItem('nexryde_token');
+          if (!token) return;
 
-            await fetch('/api/driver/taxi/location', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              }),
-            });
+          console.log(`[DRIVER] Updating location: (${lat}, ${lng}), accuracy: ${accuracy}m`);
 
+          const response = await fetch('/api/driver/taxi/location', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              lat,
+              lng,
+            }),
+          });
+
+          if (response.ok) {
             setLocationError(null);
             // Refresh pending rides after location update
             fetchPendingRides();
-          } catch (error) {
-            // Silently handle errors - don't spam console
+            console.log('[DRIVER] ✅ Location updated successfully');
+          } else {
+            console.error('[DRIVER] ❌ Failed to update location:', await response.text());
           }
-        },
-        onError: (error) => {
-          // Only show error for actual geolocation errors
-          if (error.code !== undefined) {
-            setLocationError('Unable to get your location. Please enable location services.');
-          }
-        },
-      });
-    };
+        } catch (error) {
+          console.error('[DRIVER] ❌ Error updating location:', error);
+        }
+      },
+      30000 // Update every 30 seconds
+    ).catch((error) => {
+      console.error('[DRIVER] ❌ Failed to start background tracking:', error);
+      // Fallback to regular location tracking
+      setLocationError('Background location tracking unavailable. Using standard tracking.');
+    });
 
-    // Update immediately
-    updateLocation();
-    // Update location every 30 seconds
-    locationInterval = setInterval(updateLocation, 30000);
-
+    // Cleanup on unmount or when driver goes offline
     return () => {
-      if (cleanupLocation) {
-        cleanupLocation();
-      }
-      if (locationInterval) {
-        clearInterval(locationInterval);
-      }
+      console.log('[DRIVER] Stopping background location tracking...');
+      stopBackgroundLocationTracking();
     };
-  }, [driver, fetchPendingRides]);
+  }, [driver?.isOnline, driver?.isVerified, fetchPendingRides]);
 
   // Toggle online status
   const toggleOnlineStatus = async () => {
