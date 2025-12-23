@@ -41,6 +41,7 @@ export default function HomeServicesPage() {
   const [showActiveServiceModal, setShowActiveServiceModal] = useState(false);
   const locationInputRef = useRef<HTMLInputElement>(null);
   const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const jobDescriptionRef = useRef<HTMLDivElement>(null);
 
   // Fetch services from API
   const fetchServices = useCallback(async () => {
@@ -104,12 +105,23 @@ export default function HomeServicesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
-  // Update job description prefix when service changes
+  // Update job description prefix when service changes and scroll to form
   useEffect(() => {
     if (selectedService) {
       const service = services.find(s => s.id === selectedService);
       const serviceName = service?.name.toLowerCase() || '';
       setJobDescription(`I am looking for a ${serviceName} to `);
+      
+      // Scroll to job description form after a short delay to ensure DOM is updated
+      setTimeout(() => {
+        if (jobDescriptionRef.current) {
+          jobDescriptionRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
     } else {
       setJobDescription('');
     }
@@ -383,6 +395,7 @@ export default function HomeServicesPage() {
           {/* Job Description - Only show if no active request */}
           {!activeRequest && selectedService && (
             <motion.div
+              ref={jobDescriptionRef}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20"
