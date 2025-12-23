@@ -15,12 +15,42 @@ export interface PushNotificationPayload {
  * @param pushToken - The FCM/APNS token from the user's device
  * @param payload - Notification payload
  */
+/**
+ * Validate FCM token format
+ */
+function isValidFCMToken(token: string): boolean {
+  if (!token || typeof token !== 'string') {
+    return false;
+  }
+  
+  // FCM tokens are typically 152-163 characters long
+  // They usually start with specific patterns
+  if (token.length < 100 || token.length > 200) {
+    return false;
+  }
+  
+  // Basic format check (alphanumeric and some special chars)
+  if (!/^[A-Za-z0-9_-]+$/.test(token)) {
+    return false;
+  }
+  
+  return true;
+}
+
 export async function sendPushNotification(
   pushToken: string,
   payload: PushNotificationPayload
 ): Promise<boolean> {
   try {
-    console.log(`[FCM] Attempting to send notification to token: ${pushToken.substring(0, 20)}...`);
+    // Validate token format first
+    if (!isValidFCMToken(pushToken)) {
+      console.error(`[FCM] ❌ Invalid FCM token format. Token length: ${pushToken?.length || 0}`);
+      console.error(`[FCM] Token preview: ${pushToken?.substring(0, 50)}...`);
+      return false;
+    }
+    
+    console.log(`[FCM] Attempting to send notification to token: ${pushToken.substring(0, 20)}...${pushToken.substring(pushToken.length - 10)}`);
+    console.log(`[FCM] Token length: ${pushToken.length} characters`);
     console.log(`[FCM] Notification payload:`, { title: payload.title, body: payload.body });
     
     // Ensure Firebase is initialized

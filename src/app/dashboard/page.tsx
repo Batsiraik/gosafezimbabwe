@@ -149,11 +149,21 @@ export default function DashboardPage() {
       // Setup event listeners
       setupPushNotificationListeners(
         async (token) => {
-          console.log('Push token:', token);
+          console.log('[PUSH TOKEN] Received token from Capacitor:', token);
+          console.log('[PUSH TOKEN] Token value length:', token.value?.length || 0);
+          console.log('[PUSH TOKEN] Token preview:', token.value?.substring(0, 30) + '...');
+          
+          // Validate token before storing
+          if (!token.value || token.value.length < 100) {
+            console.error('[PUSH TOKEN] ❌ Invalid token received from Capacitor. Token too short or empty.');
+            return;
+          }
+          
           // Store token in backend
           try {
             const authToken = localStorage.getItem('nexryde_token');
             if (authToken) {
+              console.log('[PUSH TOKEN] Sending token to backend...');
               const response = await fetch('/api/users/push-token', {
                 method: 'POST',
                 headers: {
@@ -162,12 +172,19 @@ export default function DashboardPage() {
                 },
                 body: JSON.stringify({ pushToken: token.value }),
               });
+              
               if (response.ok) {
-                console.log('Push token stored successfully');
+                const data = await response.json();
+                console.log('[PUSH TOKEN] ✅ Token stored successfully:', data.message);
+              } else {
+                const error = await response.json();
+                console.error('[PUSH TOKEN] ❌ Failed to store token:', error.error);
               }
+            } else {
+              console.error('[PUSH TOKEN] ❌ No auth token found, cannot store push token');
             }
           } catch (error) {
-            console.error('Error storing push token:', error);
+            console.error('[PUSH TOKEN] ❌ Error storing push token:', error);
           }
         },
         (notification) => {

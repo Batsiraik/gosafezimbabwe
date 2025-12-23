@@ -25,7 +25,16 @@ async function sendNotificationToUser(
       return false;
     }
 
-    console.log(`[NOTIFICATION] Sending to user ${user.fullName} (${user.phone}), token: ${user.pushToken.substring(0, 20)}...`);
+    // Validate token format
+    if (user.pushToken.length < 100 || user.pushToken.length > 200) {
+      console.error(`[NOTIFICATION] ❌ Invalid token format for user ${user.fullName}. Token length: ${user.pushToken.length}`);
+      console.error(`[NOTIFICATION] Token preview: ${user.pushToken.substring(0, 50)}...`);
+      console.error(`[NOTIFICATION] Full token (for debugging): ${user.pushToken}`);
+      return false;
+    }
+
+    console.log(`[NOTIFICATION] Sending to user ${user.fullName} (${user.phone})`);
+    console.log(`[NOTIFICATION] Token: ${user.pushToken.substring(0, 20)}...${user.pushToken.substring(user.pushToken.length - 10)} (${user.pushToken.length} chars)`);
     const result = await sendPushNotification(user.pushToken, payload);
     
     if (result) {
