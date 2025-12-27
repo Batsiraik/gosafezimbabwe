@@ -44,10 +44,13 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success('Registration successful! Please verify OTP.');
-      localStorage.setItem('temp_phone', data.user.phone);
+      // Store token and user data (OTP bypassed for internal testing)
+      localStorage.setItem('nexryde_token', data.token);
+      localStorage.setItem('nexryde_user', JSON.stringify(data.user));
+      
+      toast.success('Account created successfully!');
       setIsLoading(false);
-      router.push('/auth/verify-otp');
+      router.push('/dashboard');
     } catch (error) {
       console.error('Registration error:', error);
       toast.error('An error occurred. Please try again.');

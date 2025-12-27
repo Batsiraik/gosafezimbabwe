@@ -5,6 +5,11 @@ def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    // Resolve keystore file path - file is in app directory
+    if (keystoreProperties['storeFile']) {
+        def keystoreFile = new File(projectDir, keystoreProperties['storeFile'])
+        keystoreProperties['storeFile'] = keystoreFile.absolutePath
+    }
 }
 
 android {
@@ -12,8 +17,8 @@ android {
     compileSdkVersion rootProject.ext.compileSdkVersion
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     
     defaultConfig {

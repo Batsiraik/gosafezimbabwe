@@ -13,7 +13,7 @@ const libraries: ("places" | "drawing" | "geometry" | "localContext" | "visualiz
 
 const containerStyle = {
   width: '100%',
-  height: '400px'
+  height: '100%'
 };
 
 const defaultCenter = {
@@ -1047,11 +1047,33 @@ export default function RidePage() {
   };
 
   const handleDecreasePrice = () => {
-    const minPrice = suggestedPrice - 1;
-    if (adjustedPrice > minPrice) {
-      setAdjustedPrice(prev => Math.max(minPrice, prev - 0.50));
-    } else {
-      toast.error('Cannot decrease price more than $1 below suggested price');
+    setAdjustedPrice(prev => Math.max(0, prev - 0.50));
+  };
+
+  const handleManualPriceChange = (value: string) => {
+    // Allow empty input while typing
+    if (value === '') {
+      setAdjustedPrice(0);
+      return;
+    }
+    
+    // Remove any non-numeric characters except decimal point
+    const cleaned = value.replace(/[^0-9.]/g, '');
+    
+    // Only allow one decimal point
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      return; // Invalid format, don't update
+    }
+    
+    // Limit to 2 decimal places
+    if (parts[1] && parts[1].length > 2) {
+      return; // Too many decimal places, don't update
+    }
+    
+    const numValue = parseFloat(cleaned);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setAdjustedPrice(numValue);
     }
   };
 
@@ -1231,15 +1253,15 @@ export default function RidePage() {
     }
     
     return (
-      <div className="flex items-center gap-2 mt-2">
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-1">
           <div className={`w-2 h-2 rounded-full ${color} animate-pulse`} />
-          <span className="text-xs text-white/70">
+          <span className="text-xs text-gray-600">
             GPS: {status} (~{Math.round(accuracy)}m)
           </span>
         </div>
         {accuracy > 100 && (
-          <span className="text-xs text-yellow-400">
+          <span className="text-xs text-yellow-600">
             • Move outdoors for better accuracy
           </span>
         )}
@@ -1290,9 +1312,9 @@ export default function RidePage() {
   }
 
   return (
-      <div className={`min-h-screen bg-nexryde-yellow-darker ${showActiveRideModal && activeRide ? 'pointer-events-none overflow-hidden' : ''}`}>
+      <div className={`min-h-screen bg-nexryde-yellow-darker relative ${showActiveRideModal && activeRide ? 'pointer-events-none overflow-hidden' : ''}`}>
       {/* Header */}
-      <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
+      <div className="bg-white/10 backdrop-blur-lg border-b border-white/20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center py-4">
             <button
@@ -1306,79 +1328,167 @@ export default function RidePage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Full Screen Map */}
+      <div className="fixed inset-0 top-[73px] bottom-0 z-0">
+        <GoogleMap
+          mapContainerStyle={{ width: '100%', height: '100%' }}
+          center={mapCenter}
+          zoom={currentLocation ? 13 : 10}
+          onLoad={handleMapLoad}
+          options={{
+            disableDefaultUI: false,
+            zoomControl: true,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false,
+          }}
+        >
+          {/* Route line */}
+          {routePath.length > 0 && (
+            <Polyline
+              path={routePath}
+              options={{
+                strokeColor: '#F5BF19',
+                strokeOpacity: 1,
+                strokeWeight: 4,
+              }}
+            />
+          )}
+        </GoogleMap>
+      </div>
+
+      {/* Floating Location Inputs Overlay - Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 pb-4 px-2 sm:px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="space-y-6"
+          className="max-w-4xl mx-auto"
         >
-          {/* Map */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-4 shadow-xl border border-white/20">
-            <GoogleMap
-              mapContainerStyle={containerStyle}
-              center={mapCenter}
-              zoom={currentLocation ? 13 : 10}
-              onLoad={handleMapLoad}
-              options={{
-                disableDefaultUI: false,
-                zoomControl: true,
-                streetViewControl: false,
-                mapTypeControl: false,
-              }}
-            >
-              {/* Route line */}
-              {routePath.length > 0 && (
-                <Polyline
-                  path={routePath}
-                  options={{
-                    strokeColor: '#F5BF19',
-                    strokeOpacity: 1,
-                    strokeWeight: 4,
-                  }}
-                />
-              )}
-            </GoogleMap>
-          </div>
+          {/* Location Inputs - Hide when route is calculated */}
+          {!(distance > 0 || destinationCoords) && (
+            <div className="bg-white/95 backdrop-blur-lg rounded-2xl p-4 sm:p-6 shadow-2xl border border-white/20 space-y-4">
+              {/* Current Location */}
+              <div className="relative">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  From (Current Location)
+                </label>
+                <div className="relative flex items-center space-x-2">
+                  <div className="relative flex-1">
+                    <Navigation className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <input
+                      type="text"
+                      value={currentLocationAddress || 'Getting location...'}
+                      onChange={(e) => handleCurrentLocationInput(e.target.value)}
+                      onFocus={() => {
+                        if (currentLocationSuggestions.length > 0) {
+                          setShowCurrentLocationSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowCurrentLocationSuggestions(false), 200);
+                      }}
+                      placeholder="Enter your location or use GPS"
+                      disabled={!!activeRide}
+                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {/* Current Location Suggestions */}
+                    {showCurrentLocationSuggestions && currentLocationSuggestions.length > 0 && (
+                      <div className="absolute z-30 w-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 max-h-60 overflow-y-auto">
+                        {currentLocationSuggestions.map((suggestion, index) => {
+                          const placeId = suggestion.placePrediction?.placeId;
+                          const text = suggestion.placePrediction?.text?.text || '';
+                          if (!placeId) return null;
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => selectCurrentLocation(placeId, text)}
+                              className="w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
+                            >
+                              <p className="text-gray-900 font-medium">{text}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={getCurrentLocation}
+                      disabled={!!activeRide}
+                      className="px-4 py-3 bg-nexryde-yellow text-white rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed relative group flex items-center gap-2"
+                      title="Use GPS location"
+                    >
+                      <div className={`w-2 h-2 rounded-full ${isLoading ? 'animate-ping bg-white' : 'bg-white'}`} />
+                      <span>{isLoading ? 'Getting GPS...' : '📍 GPS'}</span>
+                    </button>
+                    
+                    {/* GPS Tips Button */}
+                    <button
+                      onClick={() => setShowGpsTips(true)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-colors"
+                      title="GPS Tips"
+                    >
+                      ?
+                    </button>
+                  </div>
+                </div>
+                
+                {/* GPS Accuracy Indicator */}
+                {gpsAccuracy !== null && (
+                  <div className="mt-2">
+                    <GpsAccuracyIndicator accuracy={gpsAccuracy} />
+                  </div>
+                )}
+                
+                {/* Accuracy Status */}
+                {accuracyStatus && (
+                  <p className="mt-1 text-xs text-gray-500 italic">
+                    {accuracyStatus}
+                  </p>
+                )}
+              </div>
 
-          {/* Location Inputs */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 space-y-4">
-            {/* Current Location */}
-            <div className="relative">
-              <label className="block text-white/70 text-sm font-medium mb-2">
-                From (Current Location)
-              </label>
-              <div className="relative flex items-center space-x-2">
-                <div className="relative flex-1">
-                  <Navigation className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 z-10" />
+              {/* Destination */}
+              <div className="relative">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  To (Destination)
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                   <input
+                    ref={destinationInputRef}
                     type="text"
-                    value={currentLocationAddress || 'Getting location...'}
-                    onChange={(e) => handleCurrentLocationInput(e.target.value)}
+                    value={destination}
+                    onChange={(e) => handleDestinationInput(e.target.value)}
                     onFocus={() => {
-                      if (currentLocationSuggestions.length > 0) {
-                        setShowCurrentLocationSuggestions(true);
+                      if (autocompleteSuggestions.length > 0) {
+                        setShowSuggestions(true);
                       }
                     }}
                     onBlur={() => {
-                      setTimeout(() => setShowCurrentLocationSuggestions(false), 200);
+                      // Delay hiding suggestions to allow click
+                      setTimeout(() => setShowSuggestions(false), 200);
                     }}
-                    placeholder="Enter your location or use GPS"
+                    placeholder="Enter destination"
                     disabled={!!activeRide}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  {/* Current Location Suggestions */}
-                  {showCurrentLocationSuggestions && currentLocationSuggestions.length > 0 && (
-                    <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-2xl border border-white/20 max-h-60 overflow-y-auto">
-                      {currentLocationSuggestions.map((suggestion, index) => {
+                  {showSuggestions && autocompleteSuggestions.length > 0 && (
+                    <div className="absolute z-30 w-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 max-h-60 overflow-y-auto">
+                      {autocompleteSuggestions.map((suggestion, index) => {
                         const placeId = suggestion.placePrediction?.placeId;
                         const text = suggestion.placePrediction?.text?.text || '';
                         if (!placeId) return null;
+                        
                         return (
                           <button
                             key={index}
-                            onClick={() => selectCurrentLocation(placeId, text)}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // Prevent onBlur from firing
+                              selectPlace(placeId, text);
+                            }}
                             className="w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
                           >
                             <p className="text-gray-900 font-medium">{text}</p>
@@ -1388,150 +1498,99 @@ export default function RidePage() {
                     </div>
                   )}
                 </div>
-                <div className="relative">
-                  <button
-                    onClick={getCurrentLocation}
+              </div>
+
+              {/* Round Trip Option */}
+              <div className="flex items-center space-x-3 pt-2">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isRoundTrip}
+                    onChange={(e) => setIsRoundTrip(e.target.checked)}
                     disabled={!!activeRide}
-                    className="px-4 py-3 bg-nexryde-yellow text-white rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-all duration-200 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed relative group flex items-center gap-2"
-                    title="Use GPS location"
-                  >
-                    <div className={`w-2 h-2 rounded-full ${isLoading ? 'animate-ping bg-white' : 'bg-white'}`} />
-                    <span>{isLoading ? 'Getting GPS...' : '📍 GPS'}</span>
-                  </button>
-                  
-                  {/* GPS Tips Button */}
-                  <button
-                    onClick={() => setShowGpsTips(true)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-blue-600 transition-colors"
-                    title="GPS Tips"
-                  >
-                    ?
-                  </button>
-                </div>
-              </div>
-              
-              {/* GPS Accuracy Indicator */}
-              {gpsAccuracy !== null && (
-                <GpsAccuracyIndicator accuracy={gpsAccuracy} />
-              )}
-              
-              {/* Accuracy Status */}
-              {accuracyStatus && (
-                <p className="mt-1 text-xs text-white/50 italic">
-                  {accuracyStatus}
-                </p>
-              )}
-            </div>
-
-            {/* Destination */}
-            <div className="relative">
-              <label className="block text-white/70 text-sm font-medium mb-2">
-                To (Destination)
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50 z-10" />
-                <input
-                  ref={destinationInputRef}
-                  type="text"
-                  value={destination}
-                  onChange={(e) => handleDestinationInput(e.target.value)}
-                  onFocus={() => {
-                    if (autocompleteSuggestions.length > 0) {
-                      setShowSuggestions(true);
-                    }
-                  }}
-                  onBlur={() => {
-                    // Delay hiding suggestions to allow click
-                    setTimeout(() => setShowSuggestions(false), 200);
-                  }}
-                  placeholder="Enter destination"
-                  disabled={!!activeRide}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                {showSuggestions && autocompleteSuggestions.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-lg rounded-xl shadow-xl border border-white/20 max-h-60 overflow-y-auto">
-                    {autocompleteSuggestions.map((suggestion, index) => {
-                      const placeId = suggestion.placePrediction?.placeId;
-                      const text = suggestion.placePrediction?.text?.text || '';
-                      if (!placeId) return null;
-                      
-                      return (
-                        <button
-                          key={index}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault(); // Prevent onBlur from firing
-                            selectPlace(placeId, text);
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-white/20 transition-colors border-b border-white/10 last:border-b-0"
-                        >
-                          <p className="text-gray-800 font-medium">{text}</p>
-                        </button>
-                      );
-                    })}
+                    className="w-5 h-5 rounded border-gray-300 bg-white text-nexryde-yellow focus:ring-2 focus:ring-nexryde-yellow focus:ring-offset-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <RotateCcw className="w-4 h-4 text-gray-700" />
+                    <span className="text-sm font-medium text-gray-700">Round Trip</span>
                   </div>
-                )}
+                </label>
               </div>
             </div>
+          )}
 
-            {/* Round Trip Option */}
-            <div className="flex items-center space-x-3 pt-2">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isRoundTrip}
-                  onChange={(e) => setIsRoundTrip(e.target.checked)}
-                  disabled={!!activeRide}
-                  className="w-5 h-5 rounded border-white/30 bg-white/10 text-nexryde-yellow focus:ring-2 focus:ring-nexryde-yellow focus:ring-offset-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <div className="flex items-center space-x-2">
-                  <RotateCcw className="w-4 h-4 text-white/70" />
-                  <span className="text-sm font-medium text-white/70">Round Trip</span>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Distance and Price */}
+          {/* Distance and Price - Show when route is calculated, hide location inputs */}
           {(distance > 0 || destinationCoords) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20"
+              className="bg-white/95 backdrop-blur-lg rounded-2xl p-4 sm:p-6 shadow-2xl border border-white/20"
             >
               <div className="space-y-4">
+                {/* Edit button to show location inputs again */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setDestination('');
+                      setDestinationCoords(null);
+                      setDistance(0);
+                      setRoutePath([]);
+                    }}
+                    className="text-sm text-gray-600 hover:text-gray-900 underline"
+                  >
+                    Edit locations
+                  </button>
+                </div>
+
                 <div className="flex justify-between items-center">
-                  <span className="text-white/70">Distance:</span>
-                  <span className="text-white font-semibold">{distance.toFixed(2)} km</span>
+                  <span className="text-gray-700">Distance:</span>
+                  <span className="text-gray-900 font-semibold">{distance.toFixed(2)} km</span>
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <span className="text-white/70">Suggested Price:</span>
-                  <span className="text-white font-semibold">${suggestedPrice.toFixed(2)}</span>
+                  <span className="text-gray-700">Suggested Price:</span>
+                  <span className="text-gray-900 font-semibold">${suggestedPrice.toFixed(2)}</span>
                 </div>
 
-                <div className="pt-4 border-t border-white/20">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-white font-medium">Your Price:</span>
-                    <span className="text-nexryde-yellow font-bold text-xl">${adjustedPrice.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-center space-x-4">
-                    <button
-                      onClick={handleDecreasePrice}
-                      disabled={adjustedPrice <= suggestedPrice - 1 || !!activeRide}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Minus className="w-5 h-5 text-white" />
-                    </button>
-                    <span className="text-white/70 text-sm">Adjust price</span>
-                    <button
-                      onClick={handleIncreasePrice}
-                      disabled={!!activeRide}
-                      className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-5 h-5 text-white" />
-                    </button>
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="mb-4">
+                    <label className="block text-gray-900 font-medium mb-2">Your Price:</label>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleDecreasePrice}
+                        disabled={!!activeRide || adjustedPrice <= 0}
+                        className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Minus className="w-5 h-5 text-gray-700" />
+                      </button>
+                      <div className="flex-1 relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                        <input
+                          type="text"
+                          value={adjustedPrice === 0 ? '' : adjustedPrice.toFixed(2)}
+                          onChange={(e) => handleManualPriceChange(e.target.value)}
+                          onBlur={() => {
+                            // Ensure minimum of 0 on blur
+                            if (adjustedPrice < 0) {
+                              setAdjustedPrice(0);
+                            }
+                          }}
+                          disabled={!!activeRide}
+                          placeholder="0.00"
+                          className="w-full pl-8 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 text-center font-bold text-xl focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                      <button
+                        onClick={handleIncreasePrice}
+                        disabled={!!activeRide}
+                        className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="w-5 h-5 text-gray-700" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Enter any price you want - drivers may accept lower offers
+                    </p>
                   </div>
                 </div>
 

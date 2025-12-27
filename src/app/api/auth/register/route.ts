@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { formatPhoneNumber, isValidZimbabwePhone } from '@/lib/utils/phone';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,21 +52,34 @@ export async function POST(request: NextRequest) {
         id: true,
         fullName: true,
         phone: true,
+        profilePictureUrl: true,
+        idDocumentUrl: true,
+        licenseUrl: true,
         isVerified: true,
         createdAt: true,
       },
     });
 
-    // Store phone in session for OTP verification
-    // In a real app, you'd use a session or Redis, but for now we'll return it
-    // The frontend will store it temporarily
+    // Generate JWT token (bypassing OTP for internal testing)
+    const token = jwt.sign(
+      { userId: user.id, phone: user.phone },
+      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+      { expiresIn: '30d' }
+    );
 
+    // Return user data and token (skip OTP verification)
     return NextResponse.json(
       {
-        message: 'User created successfully. Please verify OTP.',
+        message: 'Account created successfully!',
+        token,
         user: {
           id: user.id,
+          fullName: user.fullName,
           phone: user.phone,
+          profilePictureUrl: user.profilePictureUrl,
+          idDocumentUrl: user.idDocumentUrl,
+          licenseUrl: user.licenseUrl,
+          isVerified: user.isVerified,
         },
       },
       { status: 201 }

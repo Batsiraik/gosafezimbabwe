@@ -1,32 +1,37 @@
-# Quick Fix: API 35 Build Error
+# Quick Fix: API 35 Corruption
 
 ## The Problem
-Your Android SDK platform-35 is corrupted or not fully installed.
+API 35 files are corrupted even after installation.
 
-## Quick Fix (5 minutes)
+## Solution: Delete and Reinstall
 
-### Step 1: Open Android Studio
-```bash
-npx cap open android
+### Step 1: Close Android Studio
+**Close Android Studio completely**
+
+### Step 2: Delete Corrupted Files
+Open **File Explorer** and navigate to:
+```
+C:\Users\Admin\AppData\Local\Android\Sdk\platforms\
 ```
 
-### Step 2: Reinstall API 35
-1. In Android Studio: **Tools → SDK Manager**
-2. Click **SDK Platforms** tab
-3. **Uncheck** "Android 15.0 (API 35)" 
-4. Click **Apply** (this uninstalls it)
-5. **Check** "Android 15.0 (API 35)" again
-6. Click **Apply** (this reinstalls it fresh)
-7. Wait for download/installation (may take a few minutes)
+**Delete the entire `android-35` folder**
 
-### Step 3: Update Build Tools
-1. Still in SDK Manager, click **SDK Tools** tab
-2. Check **"Show Package Details"** (bottom right)
-3. Expand **"Android SDK Build-Tools"**
-4. Make sure **35.0.0** (or latest) is checked
-5. Click **Apply**
+### Step 3: Reinstall API 35
+1. **Open Android Studio**: `npx cap open android`
+2. **Tools → SDK Manager**
+3. **SDK Platforms** tab
+4. **Check** "Android 15.0 (API 35)"
+5. **Click Apply**
+6. **Wait for complete download** (5-10 minutes)
+7. Make sure it says "Installed"
 
-### Step 4: Clean and Rebuild
+### Step 4: Update Build Tools
+1. **SDK Tools** tab
+2. **Show Package Details**
+3. **Android SDK Build-Tools** → Check **35.0.0**
+4. **Click Apply**
+
+### Step 5: Rebuild
 ```bash
 cd android
 ./gradlew clean
@@ -35,20 +40,13 @@ cd android
 
 ---
 
-## Alternative: Use API 34 Temporarily
+## If Still Failing
 
-If API 35 keeps failing, you can test with API 34 first:
-
-1. Update `android/variables.gradle`:
-   ```
-   compileSdkVersion = 34
-   targetSdkVersion = 34
-   ```
-
-2. Build and test
-
-3. **Note**: Google Play requires API 35, so you'll need to fix API 35 eventually, but this lets you test the build process first.
+Try using API 34 temporarily (I can switch it back):
+- API 34 will build successfully
+- You can fix API 35 later
+- Google Play requires API 35, so you'll need to fix it eventually
 
 ---
 
-**Most likely solution: Reinstall API 35 via SDK Manager! 🔧**
+**The key: DELETE the corrupted folder FIRST, then reinstall! 🔧**
