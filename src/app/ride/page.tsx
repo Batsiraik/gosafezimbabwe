@@ -43,6 +43,7 @@ export default function RidePage() {
   const [showGpsTips, setShowGpsTips] = useState(false);
   const [accuracyStatus, setAccuracyStatus] = useState<string>('');
   const [ridePricePerKm, setRidePricePerKm] = useState<number>(0.60); // Default fallback
+  const [priceInputValue, setPriceInputValue] = useState<string>(''); // Raw input value for manual price entry
   const activeRidePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
   
@@ -1031,6 +1032,8 @@ export default function RidePage() {
       const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
       setSuggestedPrice(finalPrice);
       setAdjustedPrice(finalPrice);
+      // Update input value to match
+      setPriceInputValue(finalPrice.toFixed(2));
     }
   }, [isRoundTrip, distance, ridePricePerKm]);
 
@@ -1044,21 +1047,33 @@ export default function RidePage() {
 
   const handleIncreasePrice = () => {
     setAdjustedPrice(prev => prev + 0.50);
+    // Update input value to match
+    setPriceInputValue((adjustedPrice + 0.50).toFixed(2));
   };
 
   const handleDecreasePrice = () => {
-    setAdjustedPrice(prev => Math.max(0, prev - 0.50));
+    const newPrice = Math.max(0, adjustedPrice - 0.50);
+    setAdjustedPrice(newPrice);
+    // Update input value to match
+    if (newPrice === 0) {
+      setPriceInputValue('');
+    } else {
+      setPriceInputValue(newPrice.toFixed(2));
+    }
   };
 
   const handleManualPriceChange = (value: string) => {
-    // Allow empty input while typing
-    if (value === '') {
-      setAdjustedPrice(0);
-      return;
-    }
+    // Store raw input value - allow user to type freely
+    setPriceInputValue(value);
     
     // Remove any non-numeric characters except decimal point
     const cleaned = value.replace(/[^0-9.]/g, '');
+    
+    // If empty, set price to 0 but keep input empty
+    if (cleaned === '' || cleaned === '.') {
+      setAdjustedPrice(0);
+      return;
+    }
     
     // Only allow one decimal point
     const parts = cleaned.split('.');
@@ -1074,6 +1089,25 @@ export default function RidePage() {
     const numValue = parseFloat(cleaned);
     if (!isNaN(numValue) && numValue >= 0) {
       setAdjustedPrice(numValue);
+    }
+  };
+
+  const handlePriceInputBlur = () => {
+    // Format the value on blur - show formatted version
+    if (adjustedPrice === 0) {
+      setPriceInputValue('');
+    } else {
+      setPriceInputValue(adjustedPrice.toFixed(2));
+    }
+  };
+
+  const handlePriceInputFocus = () => {
+    // When focused, show raw value or empty if 0
+    if (adjustedPrice === 0) {
+      setPriceInputValue('');
+    } else {
+      // Remove trailing zeros for easier editing
+      setPriceInputValue(adjustedPrice.toString());
     }
   };
 
@@ -1567,14 +1601,10 @@ export default function RidePage() {
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
                         <input
                           type="text"
-                          value={adjustedPrice === 0 ? '' : adjustedPrice.toFixed(2)}
+                          value={priceInputValue}
                           onChange={(e) => handleManualPriceChange(e.target.value)}
-                          onBlur={() => {
-                            // Ensure minimum of 0 on blur
-                            if (adjustedPrice < 0) {
-                              setAdjustedPrice(0);
-                            }
-                          }}
+                          onFocus={handlePriceInputFocus}
+                          onBlur={handlePriceInputBlur}
                           disabled={!!activeRide}
                           placeholder="0.00"
                           className="w-full pl-8 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 text-center font-bold text-xl focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
