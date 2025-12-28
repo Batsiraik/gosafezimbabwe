@@ -181,15 +181,22 @@ export default function TaxiDriverDashboardPage() {
             icon: '🔔',
             duration: 4000,
           });
+          // Refresh pending rides when notification received
+          if (driver?.isOnline) {
+            fetchPendingRides();
+          }
         },
         (action) => {
-          // Handle notification tap
+          // Handle notification click - refresh rides
           console.log('[DRIVER] Notification tapped:', action);
-          // TODO: Navigate to relevant page based on notification data
+          if (driver?.isOnline) {
+            fetchPendingRides();
+            toast.success('Refreshing ride requests...');
+          }
         }
       );
     }
-  }, [driver]);
+  }, [driver, fetchPendingRides]);
 
   // Redirect to registration if no driver profile exists
   useEffect(() => {

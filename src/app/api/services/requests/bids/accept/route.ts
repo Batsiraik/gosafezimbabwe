@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { notifyServiceBidAccepted } from '@/lib/notifications';
 
 // POST /api/services/requests/bids/accept - Accept a provider's bid
 export async function POST(request: NextRequest) {
@@ -154,6 +155,15 @@ export async function POST(request: NextRequest) {
       });
 
       return { acceptedBid, updatedRequest };
+    });
+
+    // Notify provider that their bid was accepted (async, don't wait)
+    notifyServiceBidAccepted(
+      bid.serviceProvider.user.id,
+      bid.serviceRequest.id,
+      result.updatedRequest.user.fullName
+    ).catch((error) => {
+      console.error('Error sending service bid accepted notification:', error);
     });
 
     return NextResponse.json({

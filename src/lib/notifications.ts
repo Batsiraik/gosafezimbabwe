@@ -329,7 +329,29 @@ export async function notifyParcelBidAccepted(
 }
 
 /**
- * 5. New Home Service Request - Notify providers offering that service
+ * 5. Service Bid Accepted - Notify the home service provider
+ */
+export async function notifyServiceBidAccepted(
+  providerUserId: string,
+  serviceRequestId: string,
+  customerName: string
+): Promise<void> {
+  const payload: PushNotificationPayload = {
+    title: '✅ Service Request Accepted!',
+    body: `${customerName} accepted your bid. Tap to view details.`,
+    data: {
+      type: 'service_bid_accepted',
+      serviceRequestId: serviceRequestId,
+    },
+    sound: 'notification_sound',
+    priority: 'high',
+  };
+
+  await sendNotificationToUser(providerUserId, payload);
+}
+
+/**
+ * 6. New Home Service Request - Notify providers offering that service
  */
 export async function notifyNewServiceRequest(
   serviceRequestId: string,
@@ -386,7 +408,7 @@ export async function notifyNewServiceRequest(
 }
 
 /**
- * 6. City-to-City Match - Notify the passenger when driver accepts them
+ * 7. City-to-City Match - Notify the passenger when driver accepts them
  */
 export async function notifyCityToCityMatch(
   passengerUserId: string,
@@ -408,7 +430,7 @@ export async function notifyCityToCityMatch(
 }
 
 /**
- * 7. Send notification to all users (for admin panel - future use)
+ * 8. Send notification to all users (for admin panel - future use)
  */
 export async function notifyAllUsers(
   title: string,

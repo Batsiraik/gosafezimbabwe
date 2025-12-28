@@ -195,13 +195,76 @@ export default function DashboardPage() {
           });
         },
         (action) => {
-          // Handle notification tap
+          // Handle notification tap - Deep linking
           console.log('Notification tapped:', action);
-          // TODO: Navigate to relevant page based on notification data
+          handleNotificationClick(action);
         }
       );
     }
   }, [user]);
+
+  // Handle notification click - Deep linking
+  const handleNotificationClick = (action: any) => {
+    try {
+      const notification = action.notification;
+      const data = notification?.data || {};
+      const type = data.type;
+
+      console.log('[NOTIFICATION] Handling click for type:', type, 'Data:', data);
+
+      switch (type) {
+        case 'new_service_request':
+          // Home service provider - navigate to home services dashboard
+          router.push('/driver/home-services/dashboard');
+          toast.success('Opening service requests...');
+          break;
+
+        case 'new_ride_request':
+          // Taxi driver - navigate to taxi driver dashboard
+          router.push('/driver/taxi/dashboard');
+          toast.success('Opening ride requests...');
+          break;
+
+        case 'new_parcel_request':
+          // Parcel driver - navigate to parcel driver dashboard
+          router.push('/driver/parcel/dashboard');
+          toast.success('Opening parcel requests...');
+          break;
+
+        case 'ride_bid_accepted':
+          // Driver's bid was accepted - navigate to taxi dashboard
+          router.push('/driver/taxi/dashboard');
+          toast.success('Your bid was accepted!');
+          break;
+
+        case 'parcel_bid_accepted':
+          // Parcel driver's bid was accepted - navigate to parcel dashboard
+          router.push('/driver/parcel/dashboard');
+          toast.success('Your bid was accepted!');
+          break;
+
+        case 'service_bid_accepted':
+          // Home service provider's bid was accepted - navigate to home services dashboard
+          router.push('/driver/home-services/dashboard');
+          toast.success('Your bid was accepted!');
+          break;
+
+        case 'city_to_city_match':
+          // City-to-city ride share match - navigate to city-to-city page
+          router.push('/city-to-city');
+          toast.success('Ride share match found!');
+          break;
+
+        default:
+          console.log('[NOTIFICATION] Unknown notification type:', type);
+          // For unknown types, just stay on dashboard
+          break;
+      }
+    } catch (error) {
+      console.error('[NOTIFICATION] Error handling notification click:', error);
+      toast.error('Error opening notification');
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('nexryde_token');

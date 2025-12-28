@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Wrench, MapPin, DollarSign, Clock, CheckCircle, Loader2, Plus, Minus, Calendar, XCircle, Settings, User, Phone, Star, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getServiceIcon } from '@/lib/utils/service-icons';
+import { initializePushNotifications, setupPushNotificationListeners } from '@/lib/push-notifications';
 
 interface PendingRequest {
   id: string;
@@ -137,6 +138,67 @@ export default function HomeServiceProviderDashboardPage() {
     const { setUserMode } = require('@/lib/user-mode');
     setUserMode('home-services');
   }, [checkProviderStatus]);
+
+  // Initialize push notifications for home service providers
+  useEffect(() => {
+    if (typeof window !== 'undefined' && provider) {
+      console.log('[HOME SERVICES] Initializing push notifications...');
+      
+      initializePushNotifications().then((token) => {
+        if (token) {
+          console.log('[HOME SERVICES] Push notification token received:', token);
+        }
+      });
+
+      setupPushNotificationListeners(
+        async (token) => {
+          console.log('[HOME SERVICES] [PUSH TOKEN] Received token:', token);
+          
+          if (!token.value || token.value.length < 50) {
+            console.error('[HOME SERVICES] [PUSH TOKEN] ❌ Invalid token');
+            return;
+          }
+          
+          try {
+            const authToken = localStorage.getItem('nexryde_token');
+            if (authToken) {
+              const response = await fetch('/api/users/push-token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ pushToken: token.value }),
+              });
+              
+              if (response.ok) {
+                console.log('[HOME SERVICES] [PUSH TOKEN] ✅ Token stored successfully');
+              } else {
+                console.error('[HOME SERVICES] [PUSH TOKEN] ❌ Failed to store token');
+              }
+            }
+          } catch (error) {
+            console.error('[HOME SERVICES] [PUSH TOKEN] ❌ Error:', error);
+          }
+        },
+        (notification) => {
+          toast(notification.title || 'New notification', { icon: '🔔', duration: 4000 });
+          // Refresh pending requests when notification received
+          if (provider?.isVerified) {
+            fetchPendingRequests();
+          }
+        },
+        (action) => {
+          // Handle notification click - refresh requests
+          console.log('[HOME SERVICES] Notification tapped:', action);
+          if (provider?.isVerified) {
+            fetchPendingRequests();
+            toast.success('Refreshing service requests...');
+          }
+        }
+      );
+    }
+  }, [provider, fetchPendingRequests]);
 
   // Redirect to registration if no provider profile exists
   if (!loadingProvider && !provider) {

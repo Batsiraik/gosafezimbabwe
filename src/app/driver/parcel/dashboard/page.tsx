@@ -163,13 +163,22 @@ export default function ParcelDriverDashboardPage() {
         },
         (notification) => {
           toast(notification.title || 'New notification', { icon: '🔔', duration: 4000 });
+          // Refresh pending parcels when notification received
+          if (driver?.isOnline) {
+            fetchPendingParcels();
+          }
         },
         (action) => {
+          // Handle notification click - refresh parcels
           console.log('[PARCEL DRIVER] Notification tapped:', action);
+          if (driver?.isOnline) {
+            fetchPendingParcels();
+            toast.success('Refreshing parcel requests...');
+          }
         }
       );
     }
-  }, [driver]);
+  }, [driver, fetchPendingParcels]);
 
   // Redirect to registration if no driver profile exists
   if (!loadingDriver && !driver) {
