@@ -139,7 +139,42 @@ export default function HomeServiceProviderDashboardPage() {
     setUserMode('home-services');
   }, [checkProviderStatus]);
 
-  // Initialize push notifications for home service providers
+  // Redirect to registration if no provider profile exists
+  if (!loadingProvider && !provider) {
+    return null; // Will redirect
+  }
+
+  // Fetch pending requests
+  const fetchPendingRequests = useCallback(async () => {
+    if (!provider || !provider.isVerified) {
+      setPendingRequests([]);
+      return;
+    }
+
+    try {
+      setLoadingRequests(true);
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/driver/home-services/requests/pending', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPendingRequests(data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+      toast.error('Failed to load pending requests');
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, [provider]);
+
+  // Initialize push notifications for home service providers (after fetchPendingRequests is declared)
   useEffect(() => {
     if (typeof window !== 'undefined' && provider) {
       console.log('[HOME SERVICES] Initializing push notifications...');
@@ -199,41 +234,6 @@ export default function HomeServiceProviderDashboardPage() {
       );
     }
   }, [provider, fetchPendingRequests]);
-
-  // Redirect to registration if no provider profile exists
-  if (!loadingProvider && !provider) {
-    return null; // Will redirect
-  }
-
-  // Fetch pending requests
-  const fetchPendingRequests = useCallback(async () => {
-    if (!provider || !provider.isVerified) {
-      setPendingRequests([]);
-      return;
-    }
-
-    try {
-      setLoadingRequests(true);
-      const token = localStorage.getItem('nexryde_token');
-      if (!token) return;
-
-      const response = await fetch('/api/driver/home-services/requests/pending', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPendingRequests(data.requests || []);
-      }
-    } catch (error) {
-      console.error('Error fetching pending requests:', error);
-      toast.error('Failed to load pending requests');
-    } finally {
-      setLoadingRequests(false);
-    }
-  }, [provider]);
 
   // Fetch pending bids
   const fetchPendingBids = useCallback(async () => {
