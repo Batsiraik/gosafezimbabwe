@@ -215,14 +215,15 @@ export default function RidePage() {
           watchIdRef.current = null;
         }
         
-        // Show accuracy toast
-        if (accuracy && accuracy <= EXCELLENT_ACCURACY) {
-          toast.success(`📍 Excellent accuracy: ${Math.round(accuracy)}m`);
-        } else if (accuracy && accuracy <= GOOD_ACCURACY) {
-          toast.success(`📍 Good accuracy: ${Math.round(accuracy)}m`);
-        } else if (accuracy) {
-          toast(`📍 Location accuracy: ${Math.round(accuracy)}m. Drag pin if needed.`, { icon: '⚠️' });
-        }
+        // Show accuracy toast - Commented out to avoid annoying users
+        // GPS improvements happen silently in background
+        // if (accuracy && accuracy <= EXCELLENT_ACCURACY) {
+        //   toast.success(`📍 Excellent accuracy: ${Math.round(accuracy)}m`);
+        // } else if (accuracy && accuracy <= GOOD_ACCURACY) {
+        //   toast.success(`📍 Good accuracy: ${Math.round(accuracy)}m`);
+        // } else if (accuracy) {
+        //   toast(`📍 Location accuracy: ${Math.round(accuracy)}m. Drag pin if needed.`, { icon: '⚠️' });
+        // }
       }
     };
 
@@ -348,7 +349,7 @@ export default function RidePage() {
           });
           const acc = cachedPos.coords.accuracy;
           if (acc && acc <= ACCEPTABLE_ACCURACY) {
-            updateAccuracyStatus('Using cached location', acc);
+            // updateAccuracyStatus('Using cached location', acc);
             acceptPosition(cachedPos.coords.latitude, cachedPos.coords.longitude, acc, false);
           }
         } catch (e) {
@@ -393,7 +394,7 @@ export default function RidePage() {
         (pos) => {
           const acc = pos.coords.accuracy;
           if (acc && acc <= ACCEPTABLE_ACCURACY) {
-            updateAccuracyStatus('Using cached location', acc);
+            // updateAccuracyStatus('Using cached location', acc);
             acceptPosition(pos.coords.latitude, pos.coords.longitude, acc, false);
           }
         },
@@ -433,29 +434,29 @@ export default function RidePage() {
           locationLockRef.current = true;
           acceptPosition(bestPos.latitude, bestPos.longitude, acc, true);
           
-          if (acc > GOOD_ACCURACY) {
-            toast(`Using best available location (${Math.round(acc)}m). For better accuracy:`, {
-              icon: '📡',
-              duration: 5000,
-            });
-            // Show tips for better accuracy
-            setTimeout(() => {
-              toast('📍 Tips for better GPS: Move outdoors, enable WiFi, hold phone upright', {
-                icon: '💡',
-                duration: 5000,
-              });
-            }, 1000);
-          }
+          // if (acc > GOOD_ACCURACY) {
+          //   toast(`Using best available location (${Math.round(acc)}m). For better accuracy:`, {
+          //     icon: '📡',
+          //     duration: 5000,
+          //   });
+          //   // Show tips for better accuracy
+          //   setTimeout(() => {
+          //     toast('📍 Tips for better GPS: Move outdoors, enable WiFi, hold phone upright', {
+          //       icon: '💡',
+          //       duration: 5000,
+          //     });
+          //   }, 1000);
+          // }
         } else {
-          // Accuracy too poor
-          toast.error(
-            `GPS accuracy too low (${Math.round(acc)}m). Please:\n` +
-            `1. Move to an open area\n` +
-            `2. Enable WiFi/Cellular\n` +
-            `3. Type location manually\n` +
-            `4. Drag the pin on map`,
-            { duration: 8000 }
-          );
+          // // Accuracy too poor
+          // toast.error(
+          //   `GPS accuracy too low (${Math.round(acc)}m). Please:\n` +
+          //   `1. Move to an open area\n` +
+          //   `2. Enable WiFi/Cellular\n` +
+          //   `3. Type location manually\n` +
+          //   `4. Drag the pin on map`,
+          //   { duration: 8000 }
+          // );
           setIsLoading(false);
           
           // Still set location so user can see and adjust
@@ -472,7 +473,7 @@ export default function RidePage() {
         acceptPosition(bestPos.latitude, bestPos.longitude, undefined, true);
       } else {
         // No position at all
-        toast.error('No GPS signal detected. Please check permissions and try again.');
+        // toast.error('No GPS signal detected. Please check permissions and try again.');
         setIsLoading(false);
         const defaultLoc = { lat: -17.8292, lng: 31.0522 };
         setCurrentLocation(defaultLoc);
