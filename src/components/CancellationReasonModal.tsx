@@ -54,12 +54,13 @@ export default function CancellationReasonModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" onClick={handleClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-[101]"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -71,8 +72,11 @@ export default function CancellationReasonModal({
           </div>
           {!isSubmitting && (
             <button
-              onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClose();
+              }}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors pointer-events-auto"
             >
               <X className="w-5 h-5 text-gray-500" />
             </button>
@@ -86,11 +90,11 @@ export default function CancellationReasonModal({
           </p>
 
           {/* Reason Options */}
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {PREDEFINED_REASONS.map((reason) => (
               <label
                 key={reason}
-                className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all select-none ${
                   selectedReason === reason
                     ? 'border-nexryde-yellow bg-nexryde-yellow/10'
                     : 'border-gray-200 hover:border-gray-300'
@@ -101,11 +105,15 @@ export default function CancellationReasonModal({
                   name="cancellationReason"
                   value={reason}
                   checked={selectedReason === reason}
-                  onChange={(e) => setSelectedReason(e.target.value)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setSelectedReason(e.target.value);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   disabled={isSubmitting}
-                  className="w-4 h-4 text-nexryde-yellow focus:ring-nexryde-yellow"
+                  className="w-4 h-4 text-nexryde-yellow focus:ring-nexryde-yellow cursor-pointer pointer-events-auto"
                 />
-                <span className="ml-3 text-gray-900 font-medium">{reason}</span>
+                <span className="ml-3 text-gray-900 font-medium pointer-events-none">{reason}</span>
               </label>
             ))}
           </div>
@@ -122,11 +130,15 @@ export default function CancellationReasonModal({
               </label>
               <textarea
                 value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setCustomReason(e.target.value);
+                }}
+                onClick={(e) => e.stopPropagation()}
                 placeholder="Tell us why you're cancelling..."
                 disabled={isSubmitting}
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent resize-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-nexryde-yellow focus:border-transparent resize-none pointer-events-auto"
               />
             </motion.div>
           )}
@@ -134,16 +146,22 @@ export default function CancellationReasonModal({
           {/* Buttons */}
           <div className="flex gap-3 pt-4">
             <button
-              onClick={handleClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClose();
+              }}
               disabled={isSubmitting}
-              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed pointer-events-auto"
             >
               Keep Ride
             </button>
             <button
-              onClick={handleConfirm}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConfirm();
+              }}
               disabled={isSubmitting || !selectedReason || (selectedReason === 'Other' && !customReason.trim())}
-              className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed pointer-events-auto"
             >
               {isSubmitting ? 'Cancelling...' : 'Cancel Ride'}
             </button>
