@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Navigation, Search, Loader2, Clock, Car, Phone, CheckCircle, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import RatingModal from './RatingModal';
+import CancellationReasonModal from './CancellationReasonModal';
 
 interface ActiveRide {
   id: string;
@@ -53,6 +54,7 @@ interface Bid {
 
 export default function ActiveRideModal({ activeRide, onClose, onCancel }: ActiveRideModalProps) {
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [dots, setDots] = useState('');
   const [bids, setBids] = useState<Bid[]>([]);
   const [loadingBids, setLoadingBids] = useState(false);
@@ -164,7 +166,11 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancelClick = () => {
+    setShowCancellationModal(true);
+  };
+
+  const handleCancelConfirm = async (reason: string, customReason?: string) => {
     if (!activeRide) return;
     
     setIsCancelling(true);
@@ -172,6 +178,7 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
       const token = localStorage.getItem('nexryde_token');
       if (!token) {
         toast.error('Please log in again');
+        setIsCancelling(false);
         return;
       }
 
@@ -181,7 +188,11 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ rideId: activeRide.id }),
+        body: JSON.stringify({ 
+          rideId: activeRide.id,
+          reason: reason,
+          customReason: customReason,
+        }),
       });
 
       const data = await response.json();
@@ -189,16 +200,17 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
       if (!response.ok) {
         console.error('Cancel ride error response:', data);
         toast.error(data.error || 'Failed to cancel ride');
+        setIsCancelling(false);
         return;
       }
 
       toast.success('Ride cancelled successfully');
+      setShowCancellationModal(false);
       onCancel(); // Refresh ride status
       onClose(); // Close the modal
     } catch (error) {
       console.error('Cancel ride error:', error);
       toast.error('Failed to cancel ride');
-    } finally {
       setIsCancelling(false);
     }
   };
@@ -570,18 +582,11 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
             {/* Allow cancellation at any time (except if already cancelled or completed) */}
             {activeRide.status !== 'cancelled' && activeRide.status !== 'completed' && (
               <button
-                onClick={handleCancel}
+                onClick={handleCancelClick}
                 disabled={isCancelling}
                 className="w-full bg-red-500/20 text-red-400 py-3 px-6 rounded-xl font-semibold hover:bg-red-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
-                {isCancelling ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Cancelling...</span>
-                  </>
-                ) : (
-                  <span>Cancel Ride</span>
-                )}
+                <span>Cancel Ride</span>
               </button>
             )}
             {/* Remove Close button - modal should not be closable when there's an active ride */}
@@ -607,11 +612,19 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
             // The next poll will exclude this ride since user has rated
             setTimeout(() => {
               onClose();
-              onCancel(); // Refresh ride status
+              handleCancelClick(); // Show cancellation reason modal
             }, 1000);
           }}
         />
       )}
+
+      {/* Cancellation Reason Modal */}
+      <CancellationReasonModal
+        isOpen={showCancellationModal}
+        onClose={() => setShowCancellationModal(false)}
+        onConfirm={handleCancelConfirm}
+        isSubmitting={isCancelling}
+      />
     </>
   );
 }

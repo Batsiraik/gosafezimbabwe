@@ -22,11 +22,18 @@ export async function POST(request: NextRequest) {
     ) as { userId: string; phone: string };
 
     const body = await request.json();
-    const { rideId } = body;
+    const { rideId, reason, customReason } = body;
 
     if (!rideId) {
       return NextResponse.json(
         { error: 'Ride ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!reason) {
+      return NextResponse.json(
+        { error: 'Cancellation reason is required' },
         { status: 400 }
       );
     }
@@ -60,9 +67,23 @@ export async function POST(request: NextRequest) {
 
     // If ride has a driver assigned (accepted or in_progress), we should still allow cancellation
     // The driver will see it removed from their accepted rides on next poll
-    const cancelledRide = await prisma.rideRequest.update({
-      where: { id: rideId },
-      data: { status: 'cancelled' },
+    const cancelledRide = await prisma.$transaction(async (tx) => {
+      // Update ride status to cancelled
+      const updatedRide = await tx.rideRequest.update({
+        where: { id: rideId },
+        data: { status: 'cancelled' },
+      });
+
+      // Save cancellation reason
+      await tx.rideCancellationReason.create({
+        data: {
+          rideRequestId: rideId,
+          reason: reason,
+          customReason: reason === 'Other' ? customReason : null,
+        },
+      });
+
+      return updatedRide;
     });
 
     // If there were pending bids, we could optionally reject them
