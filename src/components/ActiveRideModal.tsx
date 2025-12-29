@@ -22,7 +22,7 @@ interface ActiveRide {
     userId: string;
     fullName: string;
     phone: string;
-    licenseNumber: string;
+    profilePictureUrl?: string | null;
     carRegistration: string;
   } | null;
 }
@@ -40,7 +40,6 @@ interface Bid {
   createdAt: string;
   driver: {
     id: string;
-    licenseNumber: string;
     carRegistration: string;
     averageRating?: number;
     totalRatings?: number;
@@ -48,6 +47,7 @@ interface Bid {
       id: string;
       fullName: string;
       phone: string;
+      profilePictureUrl?: string | null;
     };
   };
 }
@@ -452,11 +452,20 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-10 h-10 bg-nexryde-yellow/20 rounded-full flex items-center justify-center">
-                              <Car className="w-5 h-5 text-nexryde-yellow" />
+                            {/* Driver Profile Picture */}
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-nexryde-yellow/20 flex items-center justify-center flex-shrink-0">
+                              {bid.driver.user.profilePictureUrl ? (
+                                <img
+                                  src={bid.driver.user.profilePictureUrl}
+                                  alt={bid.driver.user.fullName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Car className="w-5 h-5 text-nexryde-yellow" />
+                              )}
                             </div>
-                            <div>
-                              <div className="flex items-center space-x-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 flex-wrap">
                                 <p className="text-white font-semibold">{bid.driver.user.fullName}</p>
                                 {bid.driver.averageRating > 0 && (
                                   <div className="flex items-center space-x-1">
@@ -473,7 +482,7 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
                                 )}
                               </div>
                               <p className="text-white/60 text-xs">
-                                License: {bid.driver.licenseNumber} • Car: {bid.driver.carRegistration}
+                                Car: {bid.driver.carRegistration}
                               </p>
                             </div>
                           </div>
@@ -523,8 +532,17 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
               <h3 className="text-white font-semibold text-lg mb-4">Your Driver</h3>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-nexryde-yellow/20 rounded-full flex items-center justify-center">
-                    <Car className="w-6 h-6 text-nexryde-yellow" />
+                  {/* Driver Profile Picture */}
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-nexryde-yellow/20 flex items-center justify-center flex-shrink-0">
+                    {activeRide.driver.profilePictureUrl ? (
+                      <img
+                        src={activeRide.driver.profilePictureUrl}
+                        alt={activeRide.driver.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Car className="w-6 h-6 text-nexryde-yellow" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="text-white font-semibold">{activeRide.driver.fullName}</p>
@@ -532,15 +550,9 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
-                  <div>
-                    <p className="text-white/70 text-xs mb-1">License Number</p>
-                    <p className="text-white font-medium text-sm">{activeRide.driver.licenseNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-white/70 text-xs mb-1">Car Registration</p>
-                    <p className="text-white font-medium text-sm">{activeRide.driver.carRegistration}</p>
-                  </div>
+                <div className="pt-3 border-t border-white/10">
+                  <p className="text-white/70 text-xs mb-1">Car Registration</p>
+                  <p className="text-white font-medium text-sm">{activeRide.driver.carRegistration}</p>
                 </div>
 
                 <div className="pt-3 border-t border-white/10">

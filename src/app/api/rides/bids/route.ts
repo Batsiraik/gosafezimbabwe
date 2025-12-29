@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
                 id: true,
                 fullName: true,
                 phone: true,
+                profilePictureUrl: true,
               },
             },
           },

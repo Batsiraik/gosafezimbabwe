@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
                 id: true,
                 fullName: true,
                 phone: true,
+                profilePictureUrl: true,
               },
             },
           },
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
         userId: activeRide.driver.user.id, // Add userId for rating
         fullName: activeRide.driver.user.fullName,
         phone: activeRide.driver.user.phone,
-        licenseNumber: activeRide.driver.licenseNumber || '',
+        profilePictureUrl: activeRide.driver.user.profilePictureUrl,
         carRegistration: activeRide.driver.carRegistration || '',
       };
     }

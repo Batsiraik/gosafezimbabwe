@@ -47,17 +47,18 @@ export async function POST(request: NextRequest) {
             driverId: true,
           },
         },
-        driver: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                phone: true,
+          driver: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phone: true,
+                  profilePictureUrl: true,
+                },
               },
             },
           },
-        },
       },
     });
 
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
                   id: true,
                   fullName: true,
                   phone: true,
+                  profilePictureUrl: true,
                 },
               },
             },
