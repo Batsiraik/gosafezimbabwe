@@ -118,7 +118,64 @@ export default function ParcelDriverDashboardPage() {
     setUserMode('parcel');
   }, [checkDriverStatus]);
 
-  // Initialize push notifications for parcel drivers
+  // Redirect to registration if no driver profile exists
+  if (!loadingDriver && !driver) {
+    return null; // Will redirect
+  }
+
+  // Fetch pending parcels
+  const fetchPendingParcels = useCallback(async () => {
+    if (!driver || !driver.isVerified || !driver.isOnline) {
+      setPendingParcels([]);
+      return;
+    }
+
+    try {
+      setLoadingParcels(true);
+      const token = localStorage.getItem('nexryde_token');
+      if (!token) return;
+
+      const response = await fetch('/api/driver/parcel/parcels/pending', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const parcels = data.parcels || [];
+        setPendingParcels(parcels);
+        // Clear location error if parcels were fetched successfully
+        if (parcels.length > 0) {
+          setLocationError(null);
+        }
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Parcel Driver Dashboard] Fetched ${parcels.length} pending parcels`);
+        }
+      } else if (response.status === 400) {
+        const data = await response.json();
+        // Only set error if it's about location, not if it's just no parcels
+        if (data.error && data.error.includes('location')) {
+          setLocationError(data.error);
+        } else {
+          setPendingParcels([]);
+        }
+      } else {
+        setPendingParcels([]);
+      }
+    } catch (error) {
+      console.error('Error fetching pending parcels:', error);
+      // Don't show toast on every error - might be location not ready yet
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to load pending parcels - location may not be ready');
+      }
+    } finally {
+      setLoadingParcels(false);
+    }
+  }, [driver]);
+
+  // Initialize push notifications for parcel drivers (after fetchPendingParcels is declared)
   useEffect(() => {
     if (typeof window !== 'undefined' && driver) {
       console.log('[PARCEL DRIVER] Initializing push notifications...');
@@ -179,63 +236,6 @@ export default function ParcelDriverDashboardPage() {
       );
     }
   }, [driver, fetchPendingParcels]);
-
-  // Redirect to registration if no driver profile exists
-  if (!loadingDriver && !driver) {
-    return null; // Will redirect
-  }
-
-  // Fetch pending parcels
-  const fetchPendingParcels = useCallback(async () => {
-    if (!driver || !driver.isVerified || !driver.isOnline) {
-      setPendingParcels([]);
-      return;
-    }
-
-    try {
-      setLoadingParcels(true);
-      const token = localStorage.getItem('nexryde_token');
-      if (!token) return;
-
-      const response = await fetch('/api/driver/parcel/parcels/pending', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const parcels = data.parcels || [];
-        setPendingParcels(parcels);
-        // Clear location error if parcels were fetched successfully
-        if (parcels.length > 0) {
-          setLocationError(null);
-        }
-        // Log for debugging
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[Parcel Driver Dashboard] Fetched ${parcels.length} pending parcels`);
-        }
-      } else if (response.status === 400) {
-        const data = await response.json();
-        // Only set error if it's about location, not if it's just no parcels
-        if (data.error && data.error.includes('location')) {
-          setLocationError(data.error);
-        } else {
-          setPendingParcels([]);
-        }
-      } else {
-        setPendingParcels([]);
-      }
-    } catch (error) {
-      console.error('Error fetching pending parcels:', error);
-      // Don't show toast on every error - might be location not ready yet
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Failed to load pending parcels - location may not be ready');
-      }
-    } finally {
-      setLoadingParcels(false);
-    }
-  }, [driver]);
 
   // Fetch pending bids
   const fetchPendingBids = useCallback(async () => {
