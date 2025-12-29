@@ -75,7 +75,7 @@ export default function CancellationReasonModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-[101] max-h-[90vh] flex flex-col"
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-[101] h-[90vh] max-h-[90vh] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -100,16 +100,14 @@ export default function CancellationReasonModal({
 
         {/* Content */}
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col min-h-0">
-          <p className="text-gray-700">
+          <p className="text-gray-700 flex-shrink-0">
             Please tell us why you're cancelling this ride. This helps us improve our service.
           </p>
 
-          {/* Reason Options */}
+          {/* Reason Options - Scrollable area */}
           <div 
-            className="space-y-2 overflow-y-auto pr-2"
+            className="space-y-2 overflow-y-auto pr-2 flex-1 min-h-0"
             style={{ 
-              maxHeight: '300px',
-              minHeight: '200px',
               WebkitOverflowScrolling: 'touch',
               overscrollBehavior: 'contain'
             }}
@@ -146,7 +144,7 @@ export default function CancellationReasonModal({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-4"
+              className="mt-4 flex-shrink-0"
             >
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Please specify:
@@ -167,7 +165,7 @@ export default function CancellationReasonModal({
           )}
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-4 flex-shrink-0">
+          <div className="flex gap-3 pt-4 flex-shrink-0 mt-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
