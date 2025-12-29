@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Navigation, Search, Loader2, Clock, Car, Phone, CheckCircle, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -62,17 +62,19 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [hasRated, setHasRated] = useState(false);
   const [checkingRating, setCheckingRating] = useState(false);
+  const acceptingBidRef = useRef<string | null>(null);
+  const bidIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const rideIdRef = useRef<string | null>(null);
+
+  // Keep acceptingBid ref in sync
+  useEffect(() => {
+    acceptingBidRef.current = acceptingBid;
+  }, [acceptingBid]);
 
   // Fetch bids when status is bid_received
-  const fetchBids = useCallback(async () => {
-    if (!activeRide) {
-      setBids([]);
-      return;
-    }
-
-    // Only fetch if status is bid_received
-    if (activeRide.status !== 'bid_received') {
-      setBids([]);
+  const fetchBids = useCallback(async (rideId: string) => {
+    // Don't fetch if user is currently accepting a bid to prevent UI disruption
+    if (acceptingBidRef.current) {
       return;
     }
 
@@ -81,7 +83,7 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
       const token = localStorage.getItem('nexryde_token');
       if (!token) return;
 
-      const response = await fetch(`/api/rides/bids?rideId=${activeRide.id}`, {
+      const response = await fetch(`/api/rides/bids?rideId=${rideId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -98,25 +100,46 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
     } finally {
       setLoadingBids(false);
     }
-  }, [activeRide]);
+  }, []);
 
   useEffect(() => {
-    if (activeRide?.status === 'bid_received') {
+    // Clear any existing interval
+    if (bidIntervalRef.current) {
+      clearInterval(bidIntervalRef.current);
+      bidIntervalRef.current = null;
+    }
+
+    if (activeRide?.status === 'bid_received' && activeRide?.id) {
+      // Store rideId in ref for use in interval
+      rideIdRef.current = activeRide.id;
+      
       // Fetch immediately when status changes to bid_received
-      fetchBids();
-      // Poll for new bids every 10 seconds when status is bid_received (reduced to prevent UI jumping)
-      // Don't refresh if user is currently accepting a bid to prevent UI disruption
-      const interval = setInterval(() => {
-        if (!acceptingBid) {
-          fetchBids();
+      fetchBids(activeRide.id);
+      
+      // Poll for new bids every 10 seconds when status is bid_received
+      // Use rideId from ref to avoid closure issues
+      bidIntervalRef.current = setInterval(() => {
+        const currentRideId = rideIdRef.current;
+        if (currentRideId && !acceptingBidRef.current) {
+          fetchBids(currentRideId);
         }
       }, 10000);
-      return () => clearInterval(interval);
     } else {
       // Clear bids if status is not bid_received
       setBids([]);
+      rideIdRef.current = null;
     }
-  }, [activeRide?.status, activeRide?.id, fetchBids, acceptingBid]);
+
+    return () => {
+      if (bidIntervalRef.current) {
+        clearInterval(bidIntervalRef.current);
+        bidIntervalRef.current = null;
+      }
+    };
+    // Only depend on status and id, not the entire activeRide object or fetchBids
+    // This prevents unnecessary interval recreation when parent polls and updates activeRide
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRide?.status, activeRide?.id]);
 
   // Animate dots for searching status
   useEffect(() => {
@@ -137,6 +160,7 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
 
   const handleAcceptBid = async (bidId: string) => {
     setAcceptingBid(bidId);
+    acceptingBidRef.current = bidId;
     try {
       const token = localStorage.getItem('nexryde_token');
       if (!token) {
@@ -166,6 +190,7 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
       toast.error(error.message || 'Failed to accept bid');
     } finally {
       setAcceptingBid(null);
+      acceptingBidRef.current = null;
     }
   };
 
