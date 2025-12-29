@@ -172,12 +172,13 @@ export default function RidePage() {
     let bestPos: { latitude: number; longitude: number; accuracy?: number } | null = null;
     let accuracyImprovements = 0;
     
-    // Update accuracy status in UI
+    // Update accuracy status (background only - no UI messages)
     const updateAccuracyStatus = (status: string, accuracy?: number) => {
-      setAccuracyStatus(status);
+      // Only log to console for debugging, don't show to user
       if (accuracy !== undefined) {
         console.log(`GPS Status: ${status} (${Math.round(accuracy)}m)`);
       }
+      // Don't update UI state - GPS improvements happen silently in background
     };
 
     const acceptPosition = (latitude: number, longitude: number, accuracy?: number, final = false) => {
@@ -261,12 +262,12 @@ export default function RidePage() {
         if (!locationLockRef.current) {
           if (accuracy <= EXCELLENT_ACCURACY) {
             locationLockRef.current = true;
-            updateAccuracyStatus('Location locked - Excellent', accuracy);
+            // updateAccuracyStatus('Location locked - Excellent', accuracy);
             acceptPosition(latitude, longitude, accuracy, true);
           } else if (accuracy <= GOOD_ACCURACY && accuracyImprovements >= 3) {
             // Wait for at least 3 improvements before locking with good accuracy
             locationLockRef.current = true;
-            updateAccuracyStatus('Location locked - Good', accuracy);
+            // updateAccuracyStatus('Location locked - Good', accuracy);
             acceptPosition(latitude, longitude, accuracy, true);
           }
         }
@@ -1590,12 +1591,7 @@ export default function RidePage() {
                   </div>
                 )}
                 
-                {/* Accuracy Status */}
-                {accuracyStatus && (
-                  <p className="mt-1 text-xs text-gray-500 italic">
-                    {accuracyStatus}
-                  </p>
-                )}
+                {/* Accuracy Status - Removed to avoid annoying users */}
               </div>
 
               {/* Destination */}
