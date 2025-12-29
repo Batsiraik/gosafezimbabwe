@@ -121,83 +121,6 @@ export default function TaxiDriverDashboardPage() {
     setUserMode('taxi');
   }, [checkDriverStatus]);
 
-  // Initialize push notifications for drivers (critical for receiving ride requests)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && driver) {
-      console.log('[DRIVER] Initializing push notifications for driver...');
-      
-      // Initialize push notifications
-      initializePushNotifications().then((token) => {
-        if (token) {
-          console.log('[DRIVER] Push notification token received:', token);
-        }
-      });
-
-      // Setup event listeners to store token
-      setupPushNotificationListeners(
-        async (token) => {
-          console.log('[DRIVER] [PUSH TOKEN] Received token from Capacitor:', token);
-          console.log('[DRIVER] [PUSH TOKEN] Token value length:', token.value?.length || 0);
-          
-          // Validate token before storing
-          if (!token.value || token.value.length < 50) {
-            console.error('[DRIVER] [PUSH TOKEN] ❌ Invalid token received. Token too short or empty.');
-            return;
-          }
-          
-          // Store token in backend
-          try {
-            const authToken = localStorage.getItem('nexryde_token');
-            if (authToken) {
-              console.log('[DRIVER] [PUSH TOKEN] Sending token to backend...');
-              const response = await fetch('/api/users/push-token', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({ pushToken: token.value }),
-              });
-              
-              if (response.ok) {
-                const data = await response.json();
-                console.log('[DRIVER] [PUSH TOKEN] ✅ Token stored successfully:', data.message);
-                toast.success('Notifications enabled! You will receive ride requests.');
-              } else {
-                const error = await response.json();
-                console.error('[DRIVER] [PUSH TOKEN] ❌ Failed to store token:', error.error);
-                toast.error('Failed to enable notifications. Please try again.');
-              }
-            } else {
-              console.error('[DRIVER] [PUSH TOKEN] ❌ No auth token found');
-            }
-          } catch (error) {
-            console.error('[DRIVER] [PUSH TOKEN] ❌ Error storing push token:', error);
-          }
-        },
-        (notification) => {
-          // Show notification when app is in foreground
-          toast(notification.title || 'New notification', {
-            icon: '🔔',
-            duration: 4000,
-          });
-          // Refresh pending rides when notification received
-          if (driver?.isOnline) {
-            fetchPendingRides();
-          }
-        },
-        (action) => {
-          // Handle notification click - refresh rides
-          console.log('[DRIVER] Notification tapped:', action);
-          if (driver?.isOnline) {
-            fetchPendingRides();
-            toast.success('Refreshing ride requests...');
-          }
-        }
-      );
-    }
-  }, [driver, fetchPendingRides]);
-
   // Redirect to registration if no driver profile exists
   useEffect(() => {
     if (!loadingDriver && !driver) {
@@ -296,6 +219,83 @@ export default function TaxiDriverDashboardPage() {
       stopBackgroundLocationTracking();
     };
   }, [driver?.isOnline, driver?.isVerified, fetchPendingRides]);
+
+  // Initialize push notifications for drivers (after fetchPendingRides is declared)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && driver) {
+      console.log('[DRIVER] Initializing push notifications for driver...');
+      
+      // Initialize push notifications
+      initializePushNotifications().then((token) => {
+        if (token) {
+          console.log('[DRIVER] Push notification token received:', token);
+        }
+      });
+
+      // Setup event listeners to store token
+      setupPushNotificationListeners(
+        async (token) => {
+          console.log('[DRIVER] [PUSH TOKEN] Received token from Capacitor:', token);
+          console.log('[DRIVER] [PUSH TOKEN] Token value length:', token.value?.length || 0);
+          
+          // Validate token before storing
+          if (!token.value || token.value.length < 50) {
+            console.error('[DRIVER] [PUSH TOKEN] ❌ Invalid token received. Token too short or empty.');
+            return;
+          }
+          
+          // Store token in backend
+          try {
+            const authToken = localStorage.getItem('nexryde_token');
+            if (authToken) {
+              console.log('[DRIVER] [PUSH TOKEN] Sending token to backend...');
+              const response = await fetch('/api/users/push-token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ pushToken: token.value }),
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                console.log('[DRIVER] [PUSH TOKEN] ✅ Token stored successfully:', data.message);
+                toast.success('Notifications enabled! You will receive ride requests.');
+              } else {
+                const error = await response.json();
+                console.error('[DRIVER] [PUSH TOKEN] ❌ Failed to store token:', error.error);
+                toast.error('Failed to enable notifications. Please try again.');
+              }
+            } else {
+              console.error('[DRIVER] [PUSH TOKEN] ❌ No auth token found');
+            }
+          } catch (error) {
+            console.error('[DRIVER] [PUSH TOKEN] ❌ Error storing push token:', error);
+          }
+        },
+        (notification) => {
+          // Show notification when app is in foreground
+          toast(notification.title || 'New notification', {
+            icon: '🔔',
+            duration: 4000,
+          });
+          // Refresh pending rides when notification received
+          if (driver?.isOnline) {
+            fetchPendingRides();
+          }
+        },
+        (action) => {
+          // Handle notification click - refresh rides
+          console.log('[DRIVER] Notification tapped:', action);
+          if (driver?.isOnline) {
+            fetchPendingRides();
+            toast.success('Refreshing ride requests...');
+          }
+        }
+      );
+    }
+  }, [driver, fetchPendingRides]);
 
   // Toggle online status
   const toggleOnlineStatus = async () => {
