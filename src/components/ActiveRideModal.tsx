@@ -292,12 +292,12 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
     <>
       <AnimatePresence>
         {activeRide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm pointer-events-auto">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm pointer-events-auto ${showCancellationModal ? 'overflow-hidden' : ''}`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto"
+              className={`bg-white/10 backdrop-blur-lg rounded-3xl p-6 shadow-2xl border border-white/20 max-w-2xl w-full max-h-[90vh] pointer-events-auto ${showCancellationModal ? 'overflow-hidden' : 'overflow-y-auto'}`}
             >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, AlertCircle } from 'lucide-react';
 
@@ -51,16 +51,31 @@ export default function CancellationReasonModal({
     }
   };
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" onClick={handleClose}>
+    <div 
+      className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" 
+      onClick={handleClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-[101]"
+        className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-[101] max-h-[90vh] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -84,13 +99,21 @@ export default function CancellationReasonModal({
         </div>
 
         {/* Content */}
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col min-h-0">
           <p className="text-gray-700">
             Please tell us why you're cancelling this ride. This helps us improve our service.
           </p>
 
           {/* Reason Options */}
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div 
+            className="space-y-2 overflow-y-auto pr-2"
+            style={{ 
+              maxHeight: '300px',
+              minHeight: '200px',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain'
+            }}
+          >
             {PREDEFINED_REASONS.map((reason) => (
               <label
                 key={reason}
@@ -144,7 +167,7 @@ export default function CancellationReasonModal({
           )}
 
           {/* Buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
