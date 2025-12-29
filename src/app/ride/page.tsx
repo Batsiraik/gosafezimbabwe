@@ -523,7 +523,7 @@ export default function RidePage() {
       } catch (error) {
         console.error('Error polling active ride:', error);
       }
-    }, 5000);
+    }, 10000);
   }, [stopPollingActiveRide]);
 
   // Check for active ride
@@ -626,10 +626,10 @@ export default function RidePage() {
     // Check immediately on mount (no delay)
     checkActiveRide();
     
-    // Set up continuous polling every 3 seconds to ensure modal stays visible
+    // Set up continuous polling every 10 seconds to ensure modal stays visible
     const pollInterval = setInterval(() => {
       checkActiveRide();
-    }, 3000);
+    }, 10000);
 
     return () => {
       clearInterval(pollInterval);
@@ -993,7 +993,7 @@ export default function RidePage() {
             }
           }
           
-          toast.success(`Route calculated: ${distanceInKm.toFixed(2)} km`);
+          // Route calculated silently (no toast)
         } else {
           toast('No route found', { icon: '⚠️' });
         }

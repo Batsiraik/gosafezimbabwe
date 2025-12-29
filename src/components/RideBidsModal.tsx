@@ -35,8 +35,8 @@ export default function RideBidsModal({ rideId, onClose, onBidAccepted }: RideBi
 
   useEffect(() => {
     fetchBids();
-    // Poll for new bids every 5 seconds
-    const interval = setInterval(fetchBids, 5000);
+    // Poll for new bids every 10 seconds
+    const interval = setInterval(fetchBids, 10000);
     return () => clearInterval(interval);
   }, [rideId]);
 

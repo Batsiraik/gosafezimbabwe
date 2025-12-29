@@ -196,8 +196,8 @@ export default function TaxiDriverDashboardPage() {
 
           if (response.ok) {
             setLocationError(null);
-            // Refresh pending rides after location update
-            fetchPendingRides();
+            // Don't refresh pending rides on every location update to prevent UI jumping
+            // The polling interval will handle updates
             console.log('[DRIVER] ✅ Location updated successfully');
           } else {
             console.error('[DRIVER] ❌ Failed to update location:', await response.text());
@@ -406,20 +406,23 @@ export default function TaxiDriverDashboardPage() {
       fetchPendingRides();
       fetchPendingBids();
       fetchAcceptedRides();
-      // Poll for new rides, bids, and updates every 5 seconds
-      // This ensures cancelled rides and rejected bids are removed quickly
+      // Poll for new rides, bids, and updates every 10 seconds (increased from 5s to reduce UI jumping)
+      // This ensures cancelled rides and rejected bids are removed, but gives users time to interact
       const interval = setInterval(() => {
-        fetchPendingRides();
-        fetchPendingBids();
-        fetchAcceptedRides();
-      }, 5000);
+        // Only refresh if not currently placing a bid or interacting
+        if (!isPlacingBid && !selectedRide) {
+          fetchPendingRides();
+          fetchPendingBids();
+          fetchAcceptedRides();
+        }
+      }, 10000);
       return () => clearInterval(interval);
     } else {
       // Clear rides if offline
       setPendingRides([]);
       setPendingBids([]);
     }
-  }, [driver, fetchPendingRides, fetchPendingBids, fetchAcceptedRides]);
+  }, [driver, fetchPendingRides, fetchPendingBids, fetchAcceptedRides, isPlacingBid, selectedRide]);
 
   // Handle ride selection
   const handleSelectRide = (ride: PendingRide) => {

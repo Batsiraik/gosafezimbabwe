@@ -414,12 +414,12 @@ export default function HomeServiceProviderDashboardPage() {
       fetchPendingRequests();
       fetchPendingBids();
       fetchAcceptedRequests();
-      // Poll for new requests, bids, and updates every 5 seconds
+      // Poll for new requests, bids, and updates every 10 seconds
       const interval = setInterval(() => {
         fetchPendingRequests();
         fetchPendingBids();
         fetchAcceptedRequests();
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     } else {
       // Clear requests if not verified

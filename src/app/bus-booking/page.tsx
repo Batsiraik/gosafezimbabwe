@@ -115,10 +115,10 @@ export default function BusBookingPage() {
   useEffect(() => {
     fetchCities();
     checkActiveBooking();
-    // Poll for active booking updates every 3 seconds (to catch confirmation status changes)
+    // Poll for active booking updates every 10 seconds (to catch confirmation status changes)
     const interval = setInterval(() => {
       checkActiveBooking();
-    }, 3000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [fetchCities, checkActiveBooking]);
 

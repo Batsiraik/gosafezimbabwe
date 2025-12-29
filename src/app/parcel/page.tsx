@@ -548,10 +548,10 @@ export default function ParcelPage() {
     // Check immediately on mount
     checkActiveParcel();
     
-    // Poll every 3 seconds
+    // Poll every 10 seconds
     const interval = setInterval(() => {
       checkActiveParcel();
-    }, 3000);
+    }, 10000);
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

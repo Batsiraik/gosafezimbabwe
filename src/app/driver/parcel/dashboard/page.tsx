@@ -538,12 +538,12 @@ export default function ParcelDriverDashboardPage() {
       fetchPendingParcels();
       fetchPendingBids();
       fetchAcceptedParcels();
-      // Poll for new parcels, bids, and updates every 5 seconds
+      // Poll for new parcels, bids, and updates every 10 seconds
       const interval = setInterval(() => {
         fetchPendingParcels();
         fetchPendingBids();
         fetchAcceptedParcels();
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     } else {
       // Clear parcels if offline

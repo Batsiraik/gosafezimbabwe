@@ -112,10 +112,10 @@ export default function ActiveParcelModal({ activeParcel, onClose, onCancel }: A
     if (activeParcel?.status === 'bid_received') {
       // Fetch immediately when status changes to bid_received
       fetchBids();
-      // Poll for new bids every 3 seconds when status is bid_received
+      // Poll for new bids every 10 seconds when status is bid_received
       const interval = setInterval(() => {
         fetchBids();
-      }, 3000);
+      }, 10000);
       return () => clearInterval(interval);
     } else {
       // Clear bids if status is not bid_received

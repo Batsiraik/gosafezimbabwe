@@ -104,16 +104,19 @@ export default function ActiveRideModal({ activeRide, onClose, onCancel }: Activ
     if (activeRide?.status === 'bid_received') {
       // Fetch immediately when status changes to bid_received
       fetchBids();
-      // Poll for new bids every 3 seconds when status is bid_received
+      // Poll for new bids every 10 seconds when status is bid_received (reduced to prevent UI jumping)
+      // Don't refresh if user is currently accepting a bid to prevent UI disruption
       const interval = setInterval(() => {
-        fetchBids();
-      }, 3000);
+        if (!acceptingBid) {
+          fetchBids();
+        }
+      }, 10000);
       return () => clearInterval(interval);
     } else {
       // Clear bids if status is not bid_received
       setBids([]);
     }
-  }, [activeRide?.status, activeRide?.id, fetchBids]);
+  }, [activeRide?.status, activeRide?.id, fetchBids, acceptingBid]);
 
   // Animate dots for searching status
   useEffect(() => {
