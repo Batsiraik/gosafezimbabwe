@@ -44,6 +44,7 @@ export default function RidePage() {
   const [accuracyStatus, setAccuracyStatus] = useState<string>('');
   const [ridePricePerKm, setRidePricePerKm] = useState<number>(0.60); // Default fallback
   const [priceInputValue, setPriceInputValue] = useState<string>(''); // Raw input value for manual price entry
+  const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ userId: string; lat: number; lng: number; distance: number; driverName: string }>>([]);
   const activeRidePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const retryCountRef = useRef(0);
   
@@ -54,6 +55,7 @@ export default function RidePage() {
   const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentMarkerRef = useRef<google.maps.Marker | null>(null);
   const destinationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const driverMarkersRef = useRef<google.maps.Marker[]>([]);
   const watchIdRef = useRef<number | string | null>(null);
   const locationLockRef = useRef(false);
   const gpsFallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -693,8 +695,29 @@ export default function RidePage() {
         clearTimeout(gpsFallbackTimerRef.current);
         gpsFallbackTimerRef.current = null;
       }
+      // Clear driver markers
+      driverMarkersRef.current.forEach((marker) => {
+        if (marker instanceof google.maps.Marker) {
+          google.maps.event.clearInstanceListeners(marker);
+          marker.setMap(null);
+        }
+      });
+      driverMarkersRef.current = [];
     };
   }, []);
+
+  // Clear driver markers when there's an active ride
+  useEffect(() => {
+    if (activeRide) {
+      driverMarkersRef.current.forEach((marker) => {
+        if (marker instanceof google.maps.Marker) {
+          marker.setMap(null);
+        }
+      });
+      driverMarkersRef.current = [];
+      setNearbyDrivers([]);
+    }
+  }, [activeRide]);
 
   // Handle current location input with autocomplete
   const handleCurrentLocationInput = async (value: string) => {
@@ -1158,6 +1181,79 @@ export default function RidePage() {
     };
   };
 
+  // Helper function to create car icon for drivers
+  const createCarIcon = (): google.maps.Icon => {
+    const svg = `
+      <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <!-- Car body -->
+        <rect x="4" y="12" width="24" height="12" rx="2" fill="#F5BF19" stroke="#FFFFFF" stroke-width="1.5"/>
+        <!-- Windshield -->
+        <rect x="6" y="14" width="8" height="6" rx="1" fill="#FFFFFF" opacity="0.3"/>
+        <!-- Rear window -->
+        <rect x="18" y="14" width="8" height="6" rx="1" fill="#FFFFFF" opacity="0.3"/>
+        <!-- Wheels -->
+        <circle cx="10" cy="26" r="3" fill="#333333"/>
+        <circle cx="22" cy="26" r="3" fill="#333333"/>
+        <!-- Wheel highlights -->
+        <circle cx="10" cy="26" r="1.5" fill="#666666"/>
+        <circle cx="22" cy="26" r="1.5" fill="#666666"/>
+      </svg>
+    `;
+    return {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(32, 32),
+      anchor: new google.maps.Point(16, 16),
+    };
+  };
+
+  // Fetch nearby drivers
+  const fetchNearbyDrivers = useCallback(async () => {
+    if (!currentLocation || !isLoaded) return;
+
+    try {
+      const response = await fetch(
+        `/api/drivers/nearby?lat=${currentLocation.lat}&lng=${currentLocation.lng}&radius=10&serviceType=taxi`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setNearbyDrivers(data.drivers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching nearby drivers:', error);
+    }
+  }, [currentLocation, isLoaded]);
+
+  // Update driver markers on map
+  const updateDriverMarkers = useCallback(() => {
+    if (!mapRef.current || !isLoaded) return;
+
+    // Clear existing driver markers
+    driverMarkersRef.current.forEach((marker) => {
+      if (marker instanceof google.maps.Marker) {
+        google.maps.event.clearInstanceListeners(marker);
+        marker.setMap(null);
+      }
+    });
+    driverMarkersRef.current = [];
+
+    // Create markers for each nearby driver
+    nearbyDrivers.forEach((driver) => {
+      try {
+        const marker = new google.maps.Marker({
+          map: mapRef.current,
+          position: { lat: driver.lat, lng: driver.lng },
+          title: `${driver.driverName} - ${driver.distance.toFixed(1)}km away`,
+          icon: createCarIcon(),
+          zIndex: 500, // Below pickup/destination markers
+        });
+        driverMarkersRef.current.push(marker);
+      } catch (error) {
+        console.error('Error creating driver marker:', error);
+      }
+    });
+  }, [nearbyDrivers, isLoaded]);
+
   // Update markers using traditional Marker API with custom icons
   const updateMarkers = useCallback(() => {
     if (!mapRef.current || !isLoaded) {
@@ -1261,6 +1357,25 @@ export default function RidePage() {
       updateMarkers();
     }
   }, [currentLocation, destinationCoords, isLoaded, reverseGeocode, gpsAccuracy]);
+
+  // Fetch nearby drivers when location is available
+  useEffect(() => {
+    if (currentLocation && isLoaded && !activeRide) {
+      fetchNearbyDrivers();
+      // Refresh nearby drivers every 30 seconds
+      const interval = setInterval(() => {
+        fetchNearbyDrivers();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [currentLocation, isLoaded, activeRide, fetchNearbyDrivers]);
+
+  // Update driver markers when nearby drivers change
+  useEffect(() => {
+    if (mapRef.current && isLoaded) {
+      updateDriverMarkers();
+    }
+  }, [nearbyDrivers, isLoaded, updateDriverMarkers]);
 
   // GPS Accuracy Indicator Component
   const GpsAccuracyIndicator = ({ accuracy }: { accuracy: number }) => {
