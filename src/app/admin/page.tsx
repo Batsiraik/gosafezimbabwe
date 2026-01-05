@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
     },
     {
       icon: Car,
-      label: 'Taxi Drivers',
+      label: 'Drivers',
       value: stats?.totalTaxiDrivers || 0,
       color: 'bg-green-500',
     },

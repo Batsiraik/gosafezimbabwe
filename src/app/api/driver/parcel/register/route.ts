@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (existingDriver) {
       // Update existing driver profile for parcel service
       if (existingDriver.serviceType !== 'parcel') {
-        // If they're a taxi driver, create a separate parcel driver profile
+        // If they're a driver, create a separate parcel driver profile
         // Actually, we can allow multiple service types by updating serviceType
         // For now, let's update it to support both or create separate
         // Let's update the existing one to parcel if they want to switch

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 
-// POST /api/driver/taxi/register - Register as taxi driver
+// POST /api/driver/taxi/register - Register as driver
 export async function POST(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -87,9 +87,9 @@ export async function POST(request: NextRequest) {
       driver,
     });
   } catch (error) {
-    console.error('Error registering taxi driver:', error);
+    console.error('Error registering driver:', error);
     return NextResponse.json(
-      { error: 'Failed to register as taxi driver' },
+      { error: 'Failed to register as driver' },
       { status: 500 }
     );
   }

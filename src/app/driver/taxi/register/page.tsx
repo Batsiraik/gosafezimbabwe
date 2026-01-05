@@ -119,7 +119,7 @@ export default function TaxiDriverRegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to register as taxi driver');
+        throw new Error(data.error || 'Failed to register as a driver');
       }
 
       toast.success('Registration submitted! Your documents are under review.');
@@ -146,7 +146,7 @@ export default function TaxiDriverRegisterPage() {
             >
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
-            <h1 className="text-2xl font-bold text-white">Register as Taxi Driver</h1>
+            <h1 className="text-2xl font-bold text-white">Register as a Driver</h1>
           </div>
         </div>
       </div>

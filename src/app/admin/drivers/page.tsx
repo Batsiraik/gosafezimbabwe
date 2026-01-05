@@ -117,8 +117,8 @@ export default function AdminDriversPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Taxi Drivers Management</h1>
-        <p className="text-gray-400">Manage taxi driver registrations</p>
+        <h1 className="text-3xl font-bold text-white mb-2">Drivers Management</h1>
+        <p className="text-gray-400">Manage driver registrations</p>
       </div>
 
       <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">

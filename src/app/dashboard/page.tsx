@@ -220,7 +220,7 @@ export default function DashboardPage() {
           break;
 
         case 'new_ride_request':
-          // Taxi driver - navigate to taxi driver dashboard
+          //driver - navigate to driver dashboard
           router.push('/driver/taxi/dashboard');
           toast.success('Opening ride requests...');
           break;
@@ -779,7 +779,7 @@ export default function DashboardPage() {
             <span>Become a Service Provider</span>
           </button>
           <p className="mt-4 text-white/70 text-sm text-center max-w-md">
-            Join as a <span className="text-nexryde-yellow font-medium">taxi driver</span>,{' '}
+            Join as a <span className="text-nexryde-yellow font-medium">Driver</span>,{' '}
             <span className="text-nexryde-yellow font-medium">bike delivery guy</span>,{' '}
             <span className="text-nexryde-yellow font-medium">motor mechanic</span>,{' '}
             <span className="text-nexryde-yellow font-medium">electrician</span>,{' '}

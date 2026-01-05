@@ -14,7 +14,7 @@ export default function BecomeProviderPage() {
   const services = [
     {
       id: 'taxi',
-      name: 'Taxi Driver',
+      name: 'Driver',
       description: 'Provide ride services to passengers',
       icon: <Car className="w-8 h-8" />,
       route: '/driver/taxi/register',
@@ -208,7 +208,7 @@ export default function BecomeProviderPage() {
       return;
     }
 
-    // For taxi driver, check if already registered/verified
+    // For driver, check if already registered/verified
     if (service.id === 'taxi') {
       await checkDriverStatus();
     } else if (service.id === 'parcel') {

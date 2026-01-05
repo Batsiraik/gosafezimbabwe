@@ -81,7 +81,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
     { icon: Users, label: 'Users', path: '/admin/users' },
-    { icon: Car, label: 'Taxi Drivers', path: '/admin/drivers' },
+    { icon: Car, label: 'Drivers', path: '/admin/drivers' },
     { icon: Bike, label: 'Parcel Providers', path: '/admin/parcel-providers' },
     { icon: Wrench, label: 'Home Service Providers', path: '/admin/home-service-providers' },
     { icon: Bus, label: 'Bus Providers', path: '/admin/bus-providers' },
