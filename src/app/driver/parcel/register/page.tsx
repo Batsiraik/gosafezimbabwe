@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Upload, FileText, Bike, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { compressImage } from '@/lib/utils/image-compression';
 
 export default function ParcelDriverRegisterPage() {
   const router = useRouter();
@@ -18,12 +19,14 @@ export default function ParcelDriverRegisterPage() {
   const licenseInputRef = useRef<HTMLInputElement>(null);
   const bikePictureInputRef = useRef<HTMLInputElement>(null);
 
-  const convertFileToBase64 = (file: File): Promise<string> => {
+  const convertFileToBase64 = async (file: File): Promise<string> => {
+    // Compress image before converting to base64
+    const compressedFile = await compressImage(file, 1920, 1920, 0.8, 2); // Max 2MB after compression
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedFile);
     });
   };
 
@@ -36,8 +39,9 @@ export default function ParcelDriverRegisterPage() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Allow up to 10MB before compression (will be compressed to ~2MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB. Large images will be automatically compressed.');
       return;
     }
 
@@ -58,8 +62,9 @@ export default function ParcelDriverRegisterPage() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Allow up to 10MB before compression (will be compressed to ~2MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB. Large images will be automatically compressed.');
       return;
     }
 
@@ -103,8 +108,14 @@ export default function ParcelDriverRegisterPage() {
         return;
       }
 
+      // Show compression message
+      toast.loading('Compressing images...', { id: 'compressing' });
+
+      // Convert files to base64 (with compression)
       const licenseBase64 = await convertFileToBase64(licenseFile);
       const bikePictureBase64 = await convertFileToBase64(bikePictureFile);
+      
+      toast.dismiss('compressing');
 
       const response = await fetch('/api/driver/parcel/register', {
         method: 'POST',
@@ -120,10 +131,38 @@ export default function ParcelDriverRegisterPage() {
         }),
       });
 
-      const data = await response.json();
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Response is not JSON - likely an HTML error page or plain text
+        const text = await response.text();
+        console.error('Non-JSON response received:', text.substring(0, 200));
+        
+        // Try to extract error message from HTML or use default
+        let errorMessage = 'Failed to register as parcel driver';
+        if (text.includes('Request Entity Too Large') || text.includes('Payload Too Large')) {
+          errorMessage = 'File size too large. Images are automatically compressed, but please try smaller files if this error persists.';
+        } else if (text.includes('timeout') || text.includes('Timeout')) {
+          errorMessage = 'Request timed out. Please try again with smaller images.';
+        } else if (text.includes('413') || response.status === 413) {
+          errorMessage = 'File size too large. Please compress your images before uploading.';
+        } else if (response.status >= 500) {
+          errorMessage = 'Server error. Please try again later or contact support.';
+        } else if (response.status === 401) {
+          errorMessage = 'Session expired. Please login again.';
+          router.push('/auth/login');
+          return;
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to register as parcel driver');
+        throw new Error(data?.error || 'Failed to register as parcel driver');
       }
 
       toast.success('Registration submitted! Waiting for verification...');

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 
+// Increase timeout for large image uploads (Vercel Pro allows up to 800 seconds)
+export const maxDuration = 60; // 60 seconds should be enough for image processing
+
 // POST /api/driver/taxi/register - Register as driver
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +27,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    // Check content type
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return NextResponse.json(
+        { error: 'Invalid content type. Expected application/json' },
+        { status: 400 }
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch (error: any) {
+      console.error('JSON parse error:', error);
+      // Check if error is due to payload size
+      if (error?.message?.includes('too large') || error?.message?.includes('Payload')) {
+        return NextResponse.json(
+          { error: 'Request payload too large. Please use smaller images (under 5MB each).' },
+          { status: 413 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     const { licenseNumber, carRegistration, licenseUrl, carPictureUrl } = body;
 
     // Validate required fields
