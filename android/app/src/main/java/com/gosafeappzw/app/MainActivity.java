@@ -1,4 +1,4 @@
-package com.gosafeappzw.app;
+package com.gosafeappzim.app;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;

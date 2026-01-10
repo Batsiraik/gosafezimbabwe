@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace "com.gosafeappzw.app"
+    namespace "com.gosafeappzim.app"
     compileSdkVersion rootProject.ext.compileSdkVersion
     
     compileOptions {
@@ -22,7 +22,7 @@ android {
     }
     
     defaultConfig {
-        applicationId "com.gosafeappzw.app"
+        applicationId "com.gosafeappzim.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 52

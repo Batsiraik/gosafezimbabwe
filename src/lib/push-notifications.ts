@@ -57,9 +57,11 @@ export function setupPushNotificationListeners(
   // Fired when device is registered for push notifications
   PushNotifications.addListener('registration', (token) => {
     console.log('Push registration success, token: ' + token.value);
+    // Detect platform automatically
+    const platform = Capacitor.getPlatform();
     onTokenReceived({
       value: token.value,
-      type: 'fcm', // Android uses FCM, iOS uses APNS
+      type: platform === 'ios' ? 'apns' : 'fcm', // iOS uses APNS, Android uses FCM
     });
   });
 

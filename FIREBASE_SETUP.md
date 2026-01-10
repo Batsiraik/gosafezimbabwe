@@ -4,7 +4,7 @@
 
 1. ✅ Installed Firebase Admin SDK
 2. ✅ Added `google-services.json` to Android project
-3. ✅ Updated package name to match Firebase: `com.gosafeappzw.app`
+3. ✅ Updated package name to match Firebase: `com.gosafeappzim.app`
 4. ✅ Created notification sending functions for all events
 5. ✅ Integrated notifications into API routes
 6. ✅ Added push token storage in database

@@ -66,7 +66,7 @@ MainActivity: ✅ Sound resource found! Resource ID: 2131755008
 MainActivity: ✅ Notification channel created with sound: android.resource://...
 MainActivity: ✅ Notification channel 'default' created successfully
 MainActivity: Channel verification:
-MainActivity:   - Sound URI: android.resource://com.gosafeappzw.app/raw/notification_sound
+MainActivity:   - Sound URI: android.resource://com.gosafeappzim.app/raw/notification_sound
 MainActivity: ✅ Channel sound URI looks correct!
 ```
 

@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.gosafeappzw.app',
+  appId: 'com.gosafeappzim.app',
   appName: 'GO SAFE',
   webDir: 'public',
   // Load from live Vercel deployment

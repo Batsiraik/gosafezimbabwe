@@ -7,7 +7,7 @@ When you **open the app** on your phone, immediately check Logcat for:
 ### ✅ Good Signs (Sound should work):
 ```
 MainActivity: ✅ Sound resource found! Resource ID: [number]
-MainActivity: ✅ Notification channel created with sound: android.resource://com.gosafeappzw.app/raw/notification_sound
+MainActivity: ✅ Notification channel created with sound: android.resource://com.gosafeappzim.app/raw/notification_sound
 MainActivity: ✅ Notification channel 'default' created successfully
 ```
 

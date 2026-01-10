@@ -5,7 +5,7 @@
 ### 1. Firebase Integration
 - ✅ Firebase Admin SDK installed
 - ✅ `google-services.json` placed in `android/app/`
-- ✅ Package name updated to match Firebase: `com.gosafeappzw.app`
+- ✅ Package name updated to match Firebase: `com.gosafeappzim.app`
 - ✅ Notification permissions added to AndroidManifest.xml
 
 ### 2. Notification System
@@ -132,7 +132,7 @@ Driver receives: "✅ Ride Accepted! [User Name] accepted your bid. Tap to view 
 ### Notifications not working?
 1. ✅ Check `FIREBASE_SERVICE_ACCOUNT` is set in Vercel
 2. ✅ Check `google-services.json` is in `android/app/`
-3. ✅ Check package name matches: `com.gosafeappzw.app`
+3. ✅ Check package name matches: `com.gosafeappzim.app`
 4. ✅ Rebuild APK after adding Firebase files
 5. ✅ Check device notification permissions
 6. ✅ Check Vercel logs for Firebase errors
