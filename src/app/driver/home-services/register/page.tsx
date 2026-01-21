@@ -47,14 +47,48 @@ export default function HomeServiceProviderRegisterPage() {
   }, []);
 
   const convertFileToBase64 = async (file: File): Promise<string> => {
-    // Compress image before converting to base64
-    const compressedFile = await compressImage(file, 1920, 1920, 0.8, 2); // Max 2MB after compression
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(compressedFile);
-    });
+    try {
+      // Compress image before converting to base64
+      const compressedFile = await compressImage(file, 1920, 1920, 0.8, 2); // Max 2MB after compression
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        const timeout = setTimeout(() => {
+          reader.abort();
+          reject(new Error('Image conversion timed out. Please try again.'));
+        }, 15000);
+        
+        reader.onload = () => {
+          clearTimeout(timeout);
+          if (reader.result) {
+            resolve(reader.result as string);
+          } else {
+            reject(new Error('Failed to convert image to base64.'));
+          }
+        };
+        
+        reader.onerror = (error) => {
+          clearTimeout(timeout);
+          console.error('FileReader error in convertFileToBase64:', error);
+          reject(new Error('Failed to read compressed image. Please try again.'));
+        };
+        
+        reader.onabort = () => {
+          clearTimeout(timeout);
+          reject(new Error('Image conversion was cancelled. Please try again.'));
+        };
+        
+        try {
+          reader.readAsDataURL(compressedFile);
+        } catch (error) {
+          clearTimeout(timeout);
+          reject(new Error('Failed to start image conversion. Please try again.'));
+        }
+      });
+    } catch (error: any) {
+      // Re-throw with user-friendly message
+      throw new Error(error.message || 'Failed to process image. Please try a different image file.');
+    }
   };
 
   const handleNationalIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,8 +175,24 @@ export default function HomeServiceProviderRegisterPage() {
       // Show compression message
       toast.loading('Compressing images...', { id: 'compressing' });
 
-      const nationalIdBase64 = await convertFileToBase64(nationalIdFile);
-      const selfieBase64 = await convertFileToBase64(selfieFile);
+      let nationalIdBase64: string;
+      let selfieBase64: string;
+
+      try {
+        nationalIdBase64 = await convertFileToBase64(nationalIdFile);
+      } catch (error: any) {
+        toast.dismiss('compressing');
+        toast.error(error.message || 'Failed to process National ID image. Please try a different image.');
+        throw error;
+      }
+
+      try {
+        selfieBase64 = await convertFileToBase64(selfieFile);
+      } catch (error: any) {
+        toast.dismiss('compressing');
+        toast.error(error.message || 'Failed to process selfie image. Please try a different image.');
+        throw error;
+      }
       
       toast.dismiss('compressing');
 

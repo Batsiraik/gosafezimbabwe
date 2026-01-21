@@ -20,10 +20,43 @@ export async function compressImage(
     throw new Error('Unable to compress image to required size after multiple attempts');
   }
 
+  // Validate file before processing
+  if (!file || !(file instanceof File)) {
+    throw new Error('Invalid file provided');
+  }
+
+  // Check if file is empty
+  if (file.size === 0) {
+    throw new Error('File is empty. Please select a valid image file.');
+  }
+
+  // Check if file is too large (before compression)
+  if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    throw new Error('File is too large. Please use an image smaller than 50MB.');
+  }
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please select a valid image file (JPEG, PNG, etc.)');
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
+    // Set timeout for file reading (30 seconds)
+    const timeout = setTimeout(() => {
+      reader.abort();
+      reject(new Error('Image processing timed out. Please try a smaller image or try again.'));
+    }, 30000);
+    
     reader.onload = (e) => {
+      clearTimeout(timeout);
+      
+      if (!e.target?.result) {
+        reject(new Error('Failed to read image file. The file may be corrupted.'));
+        return;
+      }
+
       const img = new Image();
       
       img.onload = () => {
@@ -100,17 +133,51 @@ export async function compressImage(
         );
       };
       
-      img.onerror = () => {
-        reject(new Error('Failed to load image'));
+      img.onerror = (error) => {
+        clearTimeout(timeout);
+        console.error('Image load error:', error);
+        reject(new Error('Failed to load image. The file may be corrupted or in an unsupported format. Please try a different image.'));
       };
       
-      img.src = e.target?.result as string;
+      try {
+        img.src = e.target?.result as string;
+      } catch (error) {
+        clearTimeout(timeout);
+        reject(new Error('Failed to process image. Please try a different image file.'));
+      }
     };
     
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'));
+    reader.onerror = (error) => {
+      clearTimeout(timeout);
+      console.error('FileReader error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to read file. ';
+      
+      if (file.size === 0) {
+        errorMessage += 'The file appears to be empty.';
+      } else if (file.size > 50 * 1024 * 1024) {
+        errorMessage += 'The file is too large. Please use an image smaller than 50MB.';
+      } else if (!file.type.startsWith('image/')) {
+        errorMessage += 'Please select a valid image file.';
+      } else {
+        errorMessage += 'The file may be corrupted or in an unsupported format. Please try a different image.';
+      }
+      
+      reject(new Error(errorMessage));
     };
     
-    reader.readAsDataURL(file);
+    reader.onabort = () => {
+      clearTimeout(timeout);
+      reject(new Error('Image processing was cancelled or timed out. Please try again with a smaller image.'));
+    };
+    
+    try {
+      reader.readAsDataURL(file);
+    } catch (error) {
+      clearTimeout(timeout);
+      console.error('Error starting file read:', error);
+      reject(new Error('Failed to start reading file. Please try selecting the image again.'));
+    }
   });
 }

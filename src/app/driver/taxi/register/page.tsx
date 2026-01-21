@@ -20,14 +20,48 @@ export default function TaxiDriverRegisterPage() {
   const carPictureInputRef = useRef<HTMLInputElement>(null);
 
   const convertFileToBase64 = async (file: File): Promise<string> => {
-    // Compress image before converting to base64
-    const compressedFile = await compressImage(file, 1920, 1920, 0.8, 2); // Max 2MB after compression
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(compressedFile);
-    });
+    try {
+      // Compress image before converting to base64
+      const compressedFile = await compressImage(file, 1920, 1920, 0.8, 2); // Max 2MB after compression
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        const timeout = setTimeout(() => {
+          reader.abort();
+          reject(new Error('Image conversion timed out. Please try again.'));
+        }, 15000);
+        
+        reader.onload = () => {
+          clearTimeout(timeout);
+          if (reader.result) {
+            resolve(reader.result as string);
+          } else {
+            reject(new Error('Failed to convert image to base64.'));
+          }
+        };
+        
+        reader.onerror = (error) => {
+          clearTimeout(timeout);
+          console.error('FileReader error in convertFileToBase64:', error);
+          reject(new Error('Failed to read compressed image. Please try again.'));
+        };
+        
+        reader.onabort = () => {
+          clearTimeout(timeout);
+          reject(new Error('Image conversion was cancelled. Please try again.'));
+        };
+        
+        try {
+          reader.readAsDataURL(compressedFile);
+        } catch (error) {
+          clearTimeout(timeout);
+          reject(new Error('Failed to start image conversion. Please try again.'));
+        }
+      });
+    } catch (error: any) {
+      // Re-throw with user-friendly message
+      throw new Error(error.message || 'Failed to process image. Please try a different image file.');
+    }
   };
 
   const handleLicenseUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,9 +140,24 @@ export default function TaxiDriverRegisterPage() {
       // Show compression message
       toast.loading('Compressing images...', { id: 'compressing' });
 
-      // Convert files to base64 (with compression)
-      const licenseBase64 = await convertFileToBase64(licenseFile);
-      const carPictureBase64 = await convertFileToBase64(carPictureFile);
+      let licenseBase64: string;
+      let carPictureBase64: string;
+
+      try {
+        licenseBase64 = await convertFileToBase64(licenseFile);
+      } catch (error: any) {
+        toast.dismiss('compressing');
+        toast.error(error.message || 'Failed to process license image. Please try a different image.');
+        throw error;
+      }
+
+      try {
+        carPictureBase64 = await convertFileToBase64(carPictureFile);
+      } catch (error: any) {
+        toast.dismiss('compressing');
+        toast.error(error.message || 'Failed to process car picture. Please try a different image.');
+        throw error;
+      }
       
       toast.dismiss('compressing');
 
