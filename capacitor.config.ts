@@ -18,8 +18,6 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false, // HTTPS only
     captureInput: true,
-    // Enable hardware acceleration for better performance
-    hardwareAccelerated: true,
   },
   ios: {
     contentInset: 'automatic',
