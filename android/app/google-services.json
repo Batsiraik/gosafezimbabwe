@@ -10,7 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:1002887776253:android:a82c209651e5003e0d3b94",
         "android_client_info": {
-          "package_name": "com.gosafeappzim.app"
+          "package_name": "com.gosafeappzw.app"
         }
       },
       "oauth_client": [
@@ -18,7 +18,7 @@
           "client_id": "1002887776253-7v2ejimbaqn46am1642oloahafvm3cm5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.gosafeappzim.app",
+            "package_name": "com.gosafeappzw.app",
             "certificate_hash": "1bc27345c23ce2c5d270a81b334ba91f2c2798e6"
           }
         },

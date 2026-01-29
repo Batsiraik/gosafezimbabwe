@@ -10,7 +10,7 @@ All Windows preparation tasks are complete. You're ready to rent a MacBook and b
 
 ### Step 1: Firebase iOS Setup ✅
 - [x] iOS app added to Firebase Console
-- [x] Bundle ID: `com.gosafeappzim.app` ✅
+- [x] Bundle ID: `com.gosafeappzw.app` ✅
 - [x] `GoogleService-Info.plist` downloaded
 - [x] File location: `ios-assets/firebase/GoogleService-Info.plist` ✅
 
@@ -32,7 +32,7 @@ All Windows preparation tasks are complete. You're ready to rent a MacBook and b
 - [x] Location: `ios-assets/sounds/notification_sound.mp3` ✅
 
 ### Step 5: Bundle ID Updated ✅
-- [x] `capacitor.config.ts` updated: `com.gosafeappzim.app` ✅
+- [x] `capacitor.config.ts` updated: `com.gosafeappzw.app` ✅
 - [x] All documentation updated with new bundle ID ✅
 
 ### Step 6: Next.js App Built ✅
@@ -123,14 +123,14 @@ When you're on MacBook, use `IOS_MACBOOK_ONLY_TASKS.md` which has:
 ## ⚠️ Important Reminders
 
 ### Bundle ID
-- **Current**: `com.gosafeappzim.app` ✅
+- **Current**: `com.gosafeappzw.app` ✅
 - Make sure this matches in:
   - Firebase Console (iOS app)
   - Xcode project settings
   - App Store Connect
 
 ### Firebase
-- Verify `GoogleService-Info.plist` bundle ID matches: `com.gosafeappzim.app`
+- Verify `GoogleService-Info.plist` bundle ID matches: `com.gosafeappzw.app`
 - Configure APNS in Firebase Console (on MacBook)
 
 ### Assets

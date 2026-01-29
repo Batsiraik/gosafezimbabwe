@@ -1,4 +1,4 @@
-package com.gosafeappzim.app;
+package com.gosafeappzw.app;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -7,7 +7,12 @@ import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Bridge;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "MainActivity";
@@ -18,6 +23,96 @@ public class MainActivity extends BridgeActivity {
         
         // Create notification channel with custom sound (required for Android 8.0+)
         createNotificationChannel();
+        
+        // Configure WebView to handle errors and clear cache on connection failures
+        configureWebView();
+    }
+    
+    private void configureWebView() {
+        // This will be called after the bridge is initialized
+        // We'll set up error handling in onStart
+    }
+    
+    @Override
+    public void onStart() {
+        super.onStart();
+        
+        // Clear WebView cache if there were previous connection errors
+        // This prevents ERR_NAME_NOT_RESOLVED and ERR_CONNECTION_ABORTED
+        try {
+            Bridge bridge = this.getBridge();
+            if (bridge != null && bridge.getWebView() != null) {
+                WebView webView = bridge.getWebView();
+                
+                // Set up error handling
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                        super.onReceivedError(view, request, error);
+                        
+                        // Only handle main document load errors (not images, scripts, etc.)
+                        if (request != null && !request.isForMainFrame()) {
+                            return;
+                        }
+                        
+                        String errorCode = String.valueOf(error.getErrorCode());
+                        String description = error.getDescription().toString();
+                        // Save the app URL so we reload it (not the error page) after clearing cache
+                        final String appUrl = (request != null && request.getUrl() != null)
+                            ? request.getUrl().toString() : "https://gosafezimbabwe.vercel.app";
+                        
+                        Log.e(TAG, "WebView Error: " + errorCode + " - " + description);
+                        Log.e(TAG, "Failed URL: " + appUrl);
+                        
+                        // Show custom error page and auto-fix (clear cache + reload app URL)
+                        // IMPORTANT: clearCache() does NOT clear localStorage, so users stay logged in!
+                        if (errorCode.contains("ERR_NAME_NOT_RESOLVED") || 
+                            errorCode.contains("ERR_CONNECTION_ABORTED") ||
+                            errorCode.contains("ERR_INTERNET_DISCONNECTED") ||
+                            description.contains("net::ERR")) {
+                            
+                            Log.w(TAG, "Connection error detected - showing custom error page");
+                            Log.d(TAG, "Note: localStorage will be preserved (users stay logged in)");
+                            
+                            // 1. Show custom error page (same colors as login - check internet, contact support)
+                            try {
+                                webView.loadUrl("file:///android_asset/connection_error.html");
+                                Log.d(TAG, "✅ Custom error page displayed");
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error loading error page: " + e.getMessage());
+                            }
+                            
+                            // 2. After 2.5 seconds: clear cache and reload APP URL - app fixes itself, user does nothing
+                            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                try {
+                                    // Clear only HTTP cache (preserves localStorage - users stay logged in)
+                                    webView.clearCache(true);
+                                    webView.clearFormData();
+                                    webView.clearHistory();
+                                    Log.d(TAG, "✅ WebView cache cleared (localStorage preserved)");
+                                    
+                                    // Auto-reload: load app URL again (not error page) - user sees it fix itself within seconds
+                                    webView.loadUrl(appUrl);
+                                    Log.d(TAG, "✅ App auto-reloading - user does not need to do anything");
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error clearing cache: " + e.getMessage());
+                                }
+                            }, 2500);
+                        }
+                    }
+                });
+                
+                // Configure WebView settings for better reliability
+                android.webkit.WebSettings settings = webView.getSettings();
+                settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+                settings.setDomStorageEnabled(true);
+                settings.setDatabaseEnabled(true);
+                
+                Log.d(TAG, "✅ WebView error handling configured");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error configuring WebView: " + e.getMessage());
+        }
     }
     
     private void createNotificationChannel() {

@@ -42,7 +42,7 @@ Already done! The `ios-assets/` folder is created with subfolders:
 4. Scroll to **Your apps** section
 5. Click **Add app** → Select **iOS** (🍎 icon)
 6. Fill in the form:
-   - **iOS bundle ID**: `com.gosafeappzim.app` (must match `capacitor.config.ts`)
+   - **iOS bundle ID**: `com.gosafeappzw.app` (must match `capacitor.config.ts`)
    - **App nickname**: `GO SAFE iOS` (optional)
    - **App Store ID**: (leave blank for now - you'll add it later)
 7. Click **Register app**

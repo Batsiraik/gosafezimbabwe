@@ -23,7 +23,7 @@ Complete this checklist **before** renting a MacBook to save time and money!
 2. Project: **gosafe-8da5a**
 3. Settings → Project settings → Your apps
 4. Add app → iOS
-5. Bundle ID: `com.gosafeappzim.app`
+5. Bundle ID: `com.gosafeappzw.app`
 6. Download `GoogleService-Info.plist`
 7. Save to: `ios-assets/firebase/GoogleService-Info.plist`
 

@@ -104,12 +104,12 @@ If the sound shows as "Default" or "None", that's the problem!
 In Android Studio Terminal, verify the sound file is in the APK:
 
 ```bash
-adb shell "run-as com.gosafeappzim.app ls -la /data/data/com.gosafeappzim.app/files"
+adb shell "run-as com.gosafeappzw.app ls -la /data/data/com.gosafeappzw.app/files"
 ```
 
 Or check if the resource exists:
 ```bash
-adb shell "pm dump com.gosafeappzim.app | grep -i notification_sound"
+adb shell "pm dump com.gosafeappzw.app | grep -i notification_sound"
 ```
 
 ---

@@ -43,7 +43,7 @@ Sound resource
 #### ✅ GOOD - Sound File Found:
 ```
 MainActivity: ✅ Sound resource found! Resource ID: 2131755008
-MainActivity: ✅ Notification channel created with sound: android.resource://com.gosafeappzim.app/raw/notification_sound
+MainActivity: ✅ Notification channel created with sound: android.resource://com.gosafeappzw.app/raw/notification_sound
 MainActivity: ✅ Notification channel 'default' created successfully
 ```
 

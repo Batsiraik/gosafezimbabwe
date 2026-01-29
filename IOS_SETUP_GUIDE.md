@@ -105,7 +105,7 @@ If you skipped the Windows preparation:
 4. Go to **Your apps** section
 5. If iOS app doesn't exist, click **Add app** → **iOS**
 6. Enter:
-   - **iOS bundle ID**: `com.gosafeappzim.app` (must match `capacitor.config.ts`)
+   - **iOS bundle ID**: `com.gosafeappzw.app` (must match `capacitor.config.ts`)
    - **App nickname**: GO SAFE iOS (optional)
    - **App Store ID**: (leave blank for now)
 7. Click **Register app**
@@ -245,7 +245,7 @@ If you skipped the Windows preparation:
 2. Create new app (if not exists):
    - **Name**: GO SAFE
    - **Primary Language**: English
-   - **Bundle ID**: `com.gosafeappzim.app`
+   - **Bundle ID**: `com.gosafeappzw.app`
    - **SKU**: `gosafe-ios-001` (unique identifier)
 3. Fill in app information:
    - Description

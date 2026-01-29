@@ -42,7 +42,7 @@ npx cap open ios
 
 1. Go to Firebase Console → Project Settings
 2. Add iOS app (if not exists):
-   - Bundle ID: `com.gosafeappzim.app`
+   - Bundle ID: `com.gosafeappzw.app`
 3. Download `GoogleService-Info.plist`
 4. Add to Xcode project
 

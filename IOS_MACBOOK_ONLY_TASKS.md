@@ -40,7 +40,7 @@ npx cap open ios
 
 ### 2.5 Signing
 - Select your **Team** (Apple Developer account)
-- ✅ Verify Bundle ID: `com.gosafeappzim.app`
+- ✅ Verify Bundle ID: `com.gosafeappzw.app`
 
 ---
 

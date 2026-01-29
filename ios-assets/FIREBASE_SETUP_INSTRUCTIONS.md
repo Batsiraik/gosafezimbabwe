@@ -8,7 +8,7 @@
 4. Scroll to **Your apps** section
 5. Click **Add app** → Select **iOS** (🍎)
 6. Enter:
-   - **iOS bundle ID**: `com.gosafeappzim.app`
+   - **iOS bundle ID**: `com.gosafeappzw.app`
    - **App nickname**: `GO SAFE iOS`
    - **App Store ID**: (leave blank)
 7. Click **Register app**
