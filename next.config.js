@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // App Router is now stable in Next.js 15, no experimental flag needed
+  // Static export for Capacitor offline bundle (app opens from local files, works in flight mode)
+  ...(process.env.BUILD_FOR_CAPACITOR === '1' ? { output: 'export', images: { unoptimized: true } } : {}),
 }
 
 module.exports = nextConfig

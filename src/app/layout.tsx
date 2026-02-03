@@ -25,6 +25,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* When app is bundled in Capacitor (file:// or Capacitor), send /api/* to Vercel so data works when online */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var b=(typeof window!=='undefined'&&(window.Capacitor||(location&&location.protocol==='file:')))?'https://gosafezimbabwe.vercel.app':'';if(b){var f=window.fetch;window.fetch=function(u,o){var url=typeof u==='string'?u:(u&&u.url)?u.url:'';if(url&&url.startsWith&&url.startsWith('/api/'))return f(b+url,o);return f(u,o);};}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

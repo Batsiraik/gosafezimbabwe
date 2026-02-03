@@ -12,7 +12,9 @@
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
     "cap:sync:android": "npx cap sync android",
-    "cap:sync:ios": "npx cap sync ios"
+    "cap:sync:ios": "npx cap sync ios",
+    "build:capacitor": "cross-env BUILD_FOR_CAPACITOR=1 prisma generate && node scripts/capacitor-export-build.js && cross-env BUILD_FOR_CAPACITOR=1 npx cap sync android",
+    "build:capacitor:ios": "cross-env BUILD_FOR_CAPACITOR=1 prisma generate && node scripts/capacitor-export-build.js && cross-env BUILD_FOR_CAPACITOR=1 npx cap sync ios"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",
@@ -45,6 +47,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
     "eslint": "^8",
     "eslint-config-next": "^15.0.5",
     "postcss": "^8",
