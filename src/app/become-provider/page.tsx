@@ -28,8 +28,8 @@ export default function BecomeProviderPage() {
     },
     {
       id: 'home-service',
-      name: 'Home Service Provider',
-      description: 'Offer home services (plumber, electrician, etc.)',
+      name: 'Business & Home Service Provider',
+      description: 'Offer business & home services (plumber, electrician, etc.)',
       icon: <Wrench className="w-8 h-8" />,
       route: '/driver/home-services/register',
     },

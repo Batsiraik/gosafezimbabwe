@@ -288,7 +288,7 @@ export default function HomeServicesPage() {
             >
               <ArrowLeft className="w-5 h-5 text-white" />
             </button>
-            <h1 className="text-2xl font-bold text-white">Home Services</h1>
+            <h1 className="text-2xl font-bold text-white">Business & Home Services</h1>
           </div>
         </div>
       </div>

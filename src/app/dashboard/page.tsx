@@ -280,7 +280,7 @@ export default function DashboardPage() {
       router.push('/parcel');
     } else if (service === 'City to City') {
       router.push('/city-to-city');
-    } else if (service === 'Home Services') {
+    } else if (service === 'Business & Home Services') {
       router.push('/home-services');
     } else if (service === 'Bus Booking') {
       router.push('/bus-booking');
@@ -654,11 +654,11 @@ export default function DashboardPage() {
                 </button>
               </div>
               
-              {/* Home Services */}
+              {/* Business & Home Services */}
               <div className="icon-container home-services-container">
                 <button className="icon" onClick={() => router.push('/home-services')}>
                   <Wrench className="w-[30px] h-[30px]" stroke="#ffe200" color="#ffe200" />
-                  <span className="icon-label">Home Services</span>
+                  <span className="icon-label">Business & Home Services</span>
                 </button>
               </div>
               
@@ -737,14 +737,14 @@ export default function DashboardPage() {
             </button>
             
             <button 
-              onClick={() => handleServiceClick('Home Services')}
+              onClick={() => handleServiceClick('Business & Home Services')}
               className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-white/20 hover:bg-white/20 transition-all duration-200 group"
             >
               <div className="text-center">
                 <div className="w-12 h-12 bg-nexryde-yellow rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                   <Wrench className="w-6 h-6 text-white" />
                 </div>
-                <h4 className="text-white font-semibold mb-2">Home Services</h4>
+                <h4 className="text-white font-semibold mb-2">Business & Home Services</h4>
                 <p className="text-white/70 text-sm">Get your home services</p>
               </div>
             </button>
