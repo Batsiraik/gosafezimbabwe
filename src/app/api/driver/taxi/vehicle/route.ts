@@ -45,8 +45,14 @@ export async function PATCH(request: NextRequest) {
     const existing = await prisma.driver.findUnique({
       where: { userId: decoded.userId },
     });
-    if (!existing || existing.serviceType !== 'taxi') {
-      return NextResponse.json({ error: 'Taxi driver profile not found' }, { status: 404 });
+    if (!existing) {
+      return NextResponse.json({ error: 'Driver profile not found. Please complete taxi registration first.' }, { status: 404 });
+    }
+    if (existing.serviceType !== 'taxi') {
+      return NextResponse.json(
+        { error: 'Your account is registered as a ' + existing.serviceType + ' driver. Use the correct dashboard to update vehicle details.' },
+        { status: 400 }
+      );
     }
 
     const updated = await prisma.driver.update({

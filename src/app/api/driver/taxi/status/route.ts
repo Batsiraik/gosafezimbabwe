@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!driver) {
+    if (!driver || driver.serviceType !== 'taxi') {
       return NextResponse.json({ driver: null });
     }
 
