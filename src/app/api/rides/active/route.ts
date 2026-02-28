@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { cancelRidesSearchingTooLong } from '@/lib/ride-auto-cancel';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +21,9 @@ export async function GET(request: NextRequest) {
       token,
       process.env.JWT_SECRET || 'your-secret-key-change-in-production'
     ) as { userId: string; phone: string };
+
+    // Auto-cancel rides that have been searching for > 2 min (ride only), so rider sees cancelled and drivers don't see stale rides
+    await cancelRidesSearchingTooLong();
 
     // Get active ride requests for this user
     // Active statuses: pending, searching, bid_received, accepted, in_progress, completed (if not rated yet)

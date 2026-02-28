@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { cancelRidesSearchingTooLong } from '@/lib/ride-auto-cancel';
 
-// GET /api/driver/taxi/rides/pending - Get pending rides within 5km
+// GET /api/driver/taxi/rides/pending - Get pending rides within 10km
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -58,6 +59,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Auto-cancel rides that have been searching for > 2 min (ride only), so drivers see only fresh requests
+    await cancelRidesSearchingTooLong();
+
     // Get pending/searching rides
     const pendingRides = await prisma.rideRequest.findMany({
       where: {
@@ -80,10 +84,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Calculate distance and filter rides within 5km
-    const ridesWithin5km = pendingRides
+    const RADIUS_KM = 10;
+    // Calculate distance and filter rides within RADIUS_KM
+    const ridesInRange = pendingRides
       .map((ride) => {
-        // Calculate distance using Haversine formula
         const R = 6371; // Earth's radius in km
         const dLat = ((ride.pickupLat - driver.currentLat!) * Math.PI) / 180;
         const dLon = ((ride.pickupLng - driver.currentLng!) * Math.PI) / 180;
@@ -101,12 +105,12 @@ export async function GET(request: NextRequest) {
           distanceFromDriver: distance,
         };
       })
-      .filter((ride) => ride.distanceFromDriver <= 5)
+      .filter((ride) => ride.distanceFromDriver <= RADIUS_KM)
       .sort((a, b) => a.distanceFromDriver - b.distanceFromDriver);
 
     return NextResponse.json({
-      rides: ridesWithin5km,
-      count: ridesWithin5km.length,
+      rides: ridesInRange,
+      count: ridesInRange.length,
     });
   } catch (error) {
     console.error('Error fetching pending rides:', error);
