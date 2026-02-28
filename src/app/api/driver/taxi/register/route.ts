@@ -69,10 +69,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingDriver) {
-      // Update existing profile
+      // Update existing profile (set serviceType so status returns this driver for taxi)
       const updatedDriver = await prisma.driver.update({
         where: { id: existingDriver.id },
         data: {
+          serviceType: 'taxi',
           licenseNumber,
           carRegistration: carRegistration.toUpperCase(),
           licenseUrl,
