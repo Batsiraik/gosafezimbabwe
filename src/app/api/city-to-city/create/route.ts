@@ -162,8 +162,9 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Create city-to-city request error:', error);
+    const message = error?.message || String(error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: process.env.NODE_ENV === 'development' ? message : 'Internal server error' },
       { status: 500 }
     );
   }

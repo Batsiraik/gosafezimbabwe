@@ -1,5 +1,9 @@
 # Offline-First Build: App Opens Even in Flight Mode
 
+**⚠️ CURRENTLY BROKEN:** The offline bundle causes broken images (e.g. logo) and is not ready for production. **Use URL mode** for releases until this is fixed. See **REVERT_TO_URL_MODE.md** for how to ship the fix (version 55 loads from Vercel again).
+
+---
+
 ## What This Does
 
 The app can now be **bundled inside the APK** so it **opens from local files** (like Facebook):

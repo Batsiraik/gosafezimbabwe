@@ -205,7 +205,7 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 // ==================== NOTIFICATION FUNCTIONS ====================
 
 /**
- * 1. New Ride Request - Notify drivers within 5km
+ * 1. New Ride Request - Notify drivers within 10km of pickup
  */
 export async function notifyNewRideRequest(
   rideRequestId: string,
@@ -216,15 +216,16 @@ export async function notifyNewRideRequest(
     console.log(`[NOTIFICATION] ===== Starting notification for ride request ${rideRequestId} =====`);
     console.log(`[NOTIFICATION] Pickup location: (${pickupLat}, ${pickupLng})`);
     
-    const driverIds = await findDriversWithinRadius(pickupLat, pickupLng, 5, 'taxi');
+    const radiusKm = 10;
+    const driverIds = await findDriversWithinRadius(pickupLat, pickupLng, radiusKm, 'taxi');
     
     if (driverIds.length === 0) {
-      console.warn(`[NOTIFICATION] ⚠️ No drivers found within 5km for ride request ${rideRequestId}`);
+      console.warn(`[NOTIFICATION] ⚠️ No drivers found within ${radiusKm}km for ride request ${rideRequestId}`);
       console.warn(`[NOTIFICATION] This could mean:`);
       console.warn(`[NOTIFICATION]   - No drivers are online`);
       console.warn(`[NOTIFICATION]   - No drivers have push tokens`);
       console.warn(`[NOTIFICATION]   - No drivers have location data`);
-      console.warn(`[NOTIFICATION]   - All drivers are too far away (>5km)`);
+      console.warn(`[NOTIFICATION]   - All drivers are too far away (>${radiusKm}km)`);
       return;
     }
 
