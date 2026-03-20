@@ -5,9 +5,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Connection URL lives in prisma.config.ts (Prisma 7+)
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -47,7 +47,8 @@ model RideRequest {
   destinationLng     Float
   destinationAddress String
   distance           Float // in kilometers
-  price              Float // original price requested by user
+  price              Float // passenger's offered price (bid to drivers)
+  recommendedPrice   Float? // admin per-km estimate at booking (for drivers / display)
   isRoundTrip        Boolean  @default(false)
   status             String   @default("pending") // pending, searching, bid_received, accepted, in_progress, completed, cancelled
   driverId           String? // Final accepted driver

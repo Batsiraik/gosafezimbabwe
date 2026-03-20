@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Expo / React Native app (local only — not tracked)
+mobile/
+
 # dependencies
 /node_modules
 /.pnp
@@ -45,8 +48,6 @@ firebase-service-account*.json
 android/keystore.properties
 android/app/*.jks
 android/app/*.keystore
-mobile/android/keystore.properties
-
 # vercel
 .vercel
 
