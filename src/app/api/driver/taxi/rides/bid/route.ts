@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
+import { getRidePricingFromDb } from '@/lib/ride-pricing';
 
 // POST /api/driver/taxi/rides/bid - Create a bid on a ride
 export async function POST(request: NextRequest) {
@@ -34,9 +35,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (bidPrice <= 0) {
+    const numBid = Number(bidPrice);
+    if (!Number.isFinite(numBid) || numBid <= 0) {
       return NextResponse.json(
         { error: 'Bid price must be greater than 0' },
+        { status: 400 }
+      );
+    }
+
+    const { rideMinPrice } = await getRidePricingFromDb();
+    if (numBid + 1e-6 < rideMinPrice) {
+      return NextResponse.json(
+        {
+          error: `Your bid must be at least $${rideMinPrice.toFixed(2)} (minimum fare).`,
+        },
         { status: 400 }
       );
     }
@@ -108,7 +120,7 @@ export async function POST(request: NextRequest) {
       const updatedBid = await prisma.rideBid.update({
         where: { id: existingBid.id },
         data: {
-          bidPrice,
+          bidPrice: numBid,
           status: 'pending', // Reset to pending if updating
         },
         include: {
@@ -145,7 +157,7 @@ export async function POST(request: NextRequest) {
       data: {
         rideRequestId: rideId,
         driverId: driver.id,
-        bidPrice,
+        bidPrice: numBid,
         status: 'pending',
       },
       include: {
@@ -166,6 +178,7 @@ export async function POST(request: NextRequest) {
             pickupAddress: true,
             destinationAddress: true,
             price: true,
+            recommendedPrice: true,
           },
         },
       },

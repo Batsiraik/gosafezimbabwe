@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "394a1bcc-c449-47ce-87be-86873234bc1f"
+      }
+    },
+    "plugins": [
+      ["expo-notifications", {
+        "androidDefaultChannelId": "default",
+        "sounds": ["./assets/sounds/notification_sound.mp3"]
+      }]
+    ]
+  }
+}

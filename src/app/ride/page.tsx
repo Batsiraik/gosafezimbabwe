@@ -43,6 +43,7 @@ export default function RidePage() {
   const [showGpsTips, setShowGpsTips] = useState(false);
   const [accuracyStatus, setAccuracyStatus] = useState<string>('');
   const [ridePricePerKm, setRidePricePerKm] = useState<number>(0.60); // Default fallback
+  const [rideMinPrice, setRideMinPrice] = useState<number>(2.0);
   const [priceInputValue, setPriceInputValue] = useState<string>(''); // Raw input value for manual price entry
   const [nearbyDrivers, setNearbyDrivers] = useState<Array<{ userId: string; lat: number; lng: number; distance: number; driverName: string }>>([]);
   const activeRidePollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -577,6 +578,11 @@ export default function RidePage() {
       return;
     }
 
+    if (adjustedPrice < rideMinPrice - 1e-6) {
+      toast.error(`Your offer must be at least $${rideMinPrice.toFixed(2)} (minimum fare).`);
+      return;
+    }
+
     setIsBooking(true);
     try {
       const token = localStorage.getItem('nexryde_token');
@@ -621,7 +627,7 @@ export default function RidePage() {
     } finally {
       setIsBooking(false);
     }
-  }, [currentLocation, destinationCoords, currentLocationAddress, destination, distance, adjustedPrice, isRoundTrip, router, checkActiveRide]);
+  }, [currentLocation, destinationCoords, currentLocationAddress, destination, distance, adjustedPrice, isRoundTrip, rideMinPrice, router, checkActiveRide]);
 
   // Check for active ride on mount and set up continuous polling
   useEffect(() => {
@@ -647,6 +653,7 @@ export default function RidePage() {
         if (response.ok) {
           const data = await response.json();
           setRidePricePerKm(data.ridePricePerKm || 0.60);
+          if (typeof data.rideMinPrice === 'number') setRideMinPrice(data.rideMinPrice);
         }
       } catch (error) {
         console.error('Error fetching pricing:', error);
@@ -971,11 +978,12 @@ export default function RidePage() {
           
           setDistance(distanceInKm);
           
-          // Calculate price: $0.60 per km
-          const basePrice = distanceInKm * 0.60;
+          const basePrice = distanceInKm * ridePricePerKm;
           const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
           setSuggestedPrice(finalPrice);
-          setAdjustedPrice(finalPrice);
+          const withMin = Math.max(rideMinPrice, finalPrice);
+          setAdjustedPrice(withMin);
+          setPriceInputValue(withMin.toFixed(2));
 
           // Decode polyline for map display
           if (route.polyline?.encodedPolyline && window.google?.maps?.geometry) {
@@ -1006,10 +1014,12 @@ export default function RidePage() {
         // Fallback: Try to calculate straight-line distance if API fails
         const distanceInKm = calculateStraightLineDistance(currentLocation, destinationCoords);
         setDistance(distanceInKm);
-        const basePrice = distanceInKm * 0.60;
+        const basePrice = distanceInKm * ridePricePerKm;
         const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
         setSuggestedPrice(finalPrice);
-        setAdjustedPrice(finalPrice);
+        const withMin = Math.max(rideMinPrice, finalPrice);
+        setAdjustedPrice(withMin);
+        setPriceInputValue(withMin.toFixed(2));
         
         toast('Using estimated distance. Enable Routes API for accurate routing.', { icon: '⚠️' });
         
@@ -1022,17 +1032,19 @@ export default function RidePage() {
       // Fallback: Calculate straight-line distance
       const distanceInKm = calculateStraightLineDistance(currentLocation, destinationCoords);
       setDistance(distanceInKm);
-      const basePrice = distanceInKm * 0.60;
+      const basePrice = distanceInKm * ridePricePerKm;
       const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
       setSuggestedPrice(finalPrice);
-      setAdjustedPrice(finalPrice);
+      const withMin = Math.max(rideMinPrice, finalPrice);
+      setAdjustedPrice(withMin);
+      setPriceInputValue(withMin.toFixed(2));
       
       toast.error('Could not calculate route. Using estimated distance.');
       
       // Draw straight line as fallback
       setRoutePath([currentLocation, destinationCoords]);
     }
-  }, [currentLocation, destinationCoords, isRoundTrip, isLoaded]);
+  }, [currentLocation, destinationCoords, isRoundTrip, isLoaded, ridePricePerKm, rideMinPrice]);
 
   // Helper function to calculate straight-line distance (Haversine formula)
   const calculateStraightLineDistance = (
@@ -1050,17 +1062,17 @@ export default function RidePage() {
     return R * c;
   };
 
-  // Recalculate when round trip changes
+  // Recalculate when round trip / distance / admin rate changes
   useEffect(() => {
     if (distance > 0) {
       const basePrice = distance * ridePricePerKm;
       const finalPrice = isRoundTrip ? basePrice * 2 : basePrice;
       setSuggestedPrice(finalPrice);
-      setAdjustedPrice(finalPrice);
-      // Update input value to match
-      setPriceInputValue(finalPrice.toFixed(2));
+      const withMin = Math.max(rideMinPrice, finalPrice);
+      setAdjustedPrice(withMin);
+      setPriceInputValue(withMin.toFixed(2));
     }
-  }, [isRoundTrip, distance, ridePricePerKm]);
+  }, [isRoundTrip, distance, ridePricePerKm, rideMinPrice]);
 
   // Recalculate route when current location becomes available and destination is set
   useEffect(() => {
@@ -1077,7 +1089,7 @@ export default function RidePage() {
   };
 
   const handleDecreasePrice = () => {
-    const newPrice = Math.max(0, adjustedPrice - 0.50);
+    const newPrice = Math.max(rideMinPrice, adjustedPrice - 0.50);
     setAdjustedPrice(newPrice);
     // Update input value to match
     if (newPrice === 0) {
@@ -1118,9 +1130,15 @@ export default function RidePage() {
   };
 
   const handlePriceInputBlur = () => {
-    // Format the value on blur - show formatted version
     if (adjustedPrice === 0) {
       setPriceInputValue('');
+      return;
+    }
+    const clamped = Math.max(rideMinPrice, adjustedPrice);
+    if (clamped !== adjustedPrice) {
+      setAdjustedPrice(clamped);
+      setPriceInputValue(clamped.toFixed(2));
+      toast.error(`Minimum offer is $${rideMinPrice.toFixed(2)}`);
     } else {
       setPriceInputValue(adjustedPrice.toFixed(2));
     }
@@ -1694,17 +1712,21 @@ export default function RidePage() {
                 </div>
                 
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-700">Suggested Price:</span>
+                  <span className="text-gray-700">Recommended (admin rate × distance):</span>
                   <span className="text-gray-900 font-semibold">${suggestedPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Minimum offer:</span>
+                  <span className="font-medium">${rideMinPrice.toFixed(2)}</span>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <div className="mb-4">
-                    <label className="block text-gray-900 font-medium mb-2">Your Price:</label>
+                    <label className="block text-gray-900 font-medium mb-2">Your offer (what you can pay):</label>
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={handleDecreasePrice}
-                        disabled={!!activeRide || adjustedPrice <= 0}
+                        disabled={!!activeRide || adjustedPrice <= rideMinPrice}
                         className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Minus className="w-5 h-5 text-gray-700" />
@@ -1731,7 +1753,7 @@ export default function RidePage() {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2 text-center">
-                      Enter any price you want - drivers may accept lower offers
+                      At least ${rideMinPrice.toFixed(2)}. Drivers may place their own bids.
                     </p>
                   </div>
                 </div>

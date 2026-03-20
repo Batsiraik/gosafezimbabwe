@@ -10,6 +10,7 @@ export default function AdminPricingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState({
     ridePricePerKm: 0.60,
+    rideMinPrice: 2.0,
     parcelPricePerKm: 0.40,
     parcelMinPrice: 2.00,
     whatsappNumber: '263776954448',
@@ -125,6 +126,25 @@ export default function AdminPricingPage() {
                   />
                   <p className="text-white/60 text-xs mt-1">
                     Current: ${settings.ridePricePerKm.toFixed(2)} per km
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-white/80 text-sm font-medium mb-2">
+                    Minimum ride offer (USD)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={settings.rideMinPrice}
+                    onChange={(e) =>
+                      setSettings({ ...settings, rideMinPrice: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                    placeholder="2.00"
+                  />
+                  <p className="text-white/60 text-xs mt-1">
+                    Passengers and drivers cannot bid below this amount. Recommended price is still shown from per-km × distance.
                   </p>
                 </div>
               </div>

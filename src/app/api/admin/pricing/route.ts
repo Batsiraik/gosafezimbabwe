@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         key: {
           in: [
             'ride_price_per_km',
+            'ride_min_price',
             'parcel_price_per_km',
             'parcel_min_price',
             'whatsapp_support_number',
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ridePricePerKm: parseFloat(settingsObj['ride_price_per_km'] || '0.60'),
+      rideMinPrice: parseFloat(settingsObj['ride_min_price'] || '2.00'),
       parcelPricePerKm: parseFloat(settingsObj['parcel_price_per_km'] || '0.40'),
       parcelMinPrice: parseFloat(settingsObj['parcel_min_price'] || '2.00'),
       whatsappNumber: settingsObj['whatsapp_support_number'] || '263776954448',
@@ -84,6 +86,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const {
       ridePricePerKm,
+      rideMinPrice,
       parcelPricePerKm,
       parcelMinPrice,
       whatsappNumber,
@@ -100,6 +103,20 @@ export async function PATCH(request: NextRequest) {
             key: 'ride_price_per_km',
             value: ridePricePerKm.toString(),
             description: 'Price per kilometer for ride service (in USD)',
+          },
+        })
+      );
+    }
+
+    if (rideMinPrice !== undefined) {
+      updates.push(
+        prisma.appSettings.upsert({
+          where: { key: 'ride_min_price' },
+          update: { value: rideMinPrice.toString() },
+          create: {
+            key: 'ride_min_price',
+            value: rideMinPrice.toString(),
+            description: 'Minimum passenger offer for ride booking (USD)',
           },
         })
       );

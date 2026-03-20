@@ -113,7 +113,9 @@ export async function GET(request: NextRequest) {
           pickupAddress: activeRide.pickupAddress,
           destinationAddress: activeRide.destinationAddress,
           distance: activeRide.distance,
-          price: activeRide.finalPrice || activeRide.price, // Use finalPrice (bid price) if available
+          price: activeRide.finalPrice || activeRide.price, // Display: agreed/final or passenger offer
+          passengerOffer: activeRide.price,
+          recommendedPrice: activeRide.recommendedPrice,
           originalPrice: activeRide.price, // Keep original for reference
           status: activeRide.status,
           isRoundTrip: activeRide.isRoundTrip,

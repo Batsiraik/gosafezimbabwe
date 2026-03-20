@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import jwt from 'jsonwebtoken';
 import { notifyNewRideRequest } from '@/lib/notifications';
+import {
+  computeRideRecommendedUsd,
+  getRidePricingFromDb,
+} from '@/lib/ride-pricing';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +51,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const numDistance = Number(distance);
+    const passengerOffer = Number(price);
+    if (!Number.isFinite(numDistance) || numDistance < 0) {
+      return NextResponse.json({ error: 'Invalid distance' }, { status: 400 });
+    }
+    if (!Number.isFinite(passengerOffer) || passengerOffer <= 0) {
+      return NextResponse.json({ error: 'Invalid offer price' }, { status: 400 });
+    }
+
+    const { ridePricePerKm, rideMinPrice } = await getRidePricingFromDb();
+    const rt = Boolean(isRoundTrip);
+    const recommendedPrice = computeRideRecommendedUsd(numDistance, ridePricePerKm, rt);
+
+    if (passengerOffer + 1e-6 < rideMinPrice) {
+      return NextResponse.json(
+        {
+          error: `Your offer must be at least $${rideMinPrice.toFixed(2)} (minimum fare set by admin).`,
+        },
+        { status: 400 }
+      );
+    }
+
     // Create ride request
     const rideRequest = await prisma.rideRequest.create({
       data: {
@@ -57,9 +83,10 @@ export async function POST(request: NextRequest) {
         destinationLat,
         destinationLng,
         destinationAddress,
-        distance,
-        price,
-        isRoundTrip: isRoundTrip || false,
+        distance: numDistance,
+        price: Math.round(passengerOffer * 100) / 100,
+        recommendedPrice,
+        isRoundTrip: rt,
         status: 'searching', // Start with searching status
       },
       include: {
@@ -89,6 +116,7 @@ export async function POST(request: NextRequest) {
           destinationAddress: rideRequest.destinationAddress,
           distance: rideRequest.distance,
           price: rideRequest.price,
+          recommendedPrice: rideRequest.recommendedPrice,
           status: rideRequest.status,
           createdAt: rideRequest.createdAt,
         },

@@ -8,6 +8,7 @@ export async function GET() {
         key: {
           in: [
             'ride_price_per_km',
+            'ride_min_price',
             'parcel_price_per_km',
             'parcel_min_price',
           ],
@@ -23,6 +24,7 @@ export async function GET() {
 
     return NextResponse.json({
       ridePricePerKm: parseFloat(settingsObj['ride_price_per_km'] || '0.60'),
+      rideMinPrice: parseFloat(settingsObj['ride_min_price'] || '2.00'),
       parcelPricePerKm: parseFloat(settingsObj['parcel_price_per_km'] || '0.40'),
       parcelMinPrice: parseFloat(settingsObj['parcel_min_price'] || '2.00'),
     });
@@ -31,6 +33,7 @@ export async function GET() {
     // Return defaults on error
     return NextResponse.json({
       ridePricePerKm: 0.60,
+      rideMinPrice: 2.00,
       parcelPricePerKm: 0.40,
       parcelMinPrice: 2.00,
     });
