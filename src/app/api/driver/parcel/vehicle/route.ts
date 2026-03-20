@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 
 export const maxDuration = 60;
 
-// PATCH /api/driver/parcel/vehicle - Update vehicle (bike) details
+// PATCH /api/driver/parcel/vehicle - Update vehicle (bike) detailss
 export async function PATCH(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
