@@ -1,7 +1,15 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Expo / React Native app (local only — not tracked)
-mobile/
+# Expo / React Native app lives in mobile/ — must be tracked for EAS Build (iOS/Android cloud builds).
+# Ignore local secrets and deps inside mobile:
+mobile/node_modules/
+mobile/android/local.properties
+mobile/android/keystore.properties
+mobile/android/app/*.p12
+mobile/android/app/*.jks
+mobile/android/app/*.keystore
+mobile/.env
+mobile/.env.*
 
 # dependencies
 /node_modules

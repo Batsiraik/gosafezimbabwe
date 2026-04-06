@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Ticket, Edit2, Eye } from 'lucide-react';
+import { Edit2, Eye, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/admin/Pagination';
 
@@ -10,7 +10,7 @@ interface BusSchedule {
   fromCityId: string;
   toCityId: string;
   departureTime: string;
-  busStation: string;
+  station: string;
   price: number;
   totalSeats: number;
   daysOfWeek: string;
@@ -23,6 +23,18 @@ interface BusSchedule {
       phone: string;
     };
   };
+}
+
+type VerifiedProvider = {
+  id: string;
+  isVerified: boolean;
+  user: { id: string; fullName: string; phone: string };
+};
+
+type CityOption = { id: string; name: string };
+
+function scheduleStation(s: BusSchedule & { busStation?: string }) {
+  return s.station ?? s.busStation ?? '—';
 }
 
 export default function AdminBusSchedulesPage() {
@@ -38,6 +50,24 @@ export default function AdminBusSchedulesPage() {
     price: 0,
     totalSeats: 0,
     daysOfWeek: '',
+    isActive: true,
+  });
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [verifiedProviders, setVerifiedProviders] = useState<VerifiedProvider[]>([]);
+  const [cities, setCities] = useState<CityOption[]>([]);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    busProviderId: '',
+    fromCityId: '',
+    toCityId: '',
+    departureTime: '',
+    arrivalTime: '',
+    station: '',
+    price: '' as string | number,
+    totalSeats: '' as string | number,
+    daysOfWeek: 'daily',
+    conductorPhone: '',
     isActive: true,
   });
 
@@ -66,11 +96,122 @@ export default function AdminBusSchedulesPage() {
     }
   };
 
-  const handleEdit = (schedule: BusSchedule) => {
+  const loadCreateLookups = async () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) return;
+    try {
+      const [provRes, cityRes] = await Promise.all([
+        fetch('/api/admin/bus-providers?verifiedOnly=true&limit=500&page=1', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('/api/admin/cities?limit=500&page=1', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      if (provRes.ok) {
+        const d = await provRes.json();
+        setVerifiedProviders(d.providers ?? []);
+      }
+      if (cityRes.ok) {
+        const d = await cityRes.json();
+        setCities(d.cities ?? []);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load providers or cities');
+    }
+  };
+
+  const openCreate = () => {
+    setCreateForm({
+      busProviderId: '',
+      fromCityId: '',
+      toCityId: '',
+      departureTime: '',
+      arrivalTime: '',
+      station: '',
+      price: '',
+      totalSeats: '',
+      daysOfWeek: 'daily',
+      conductorPhone: '',
+      isActive: true,
+    });
+    setShowCreate(true);
+    void loadCreateLookups();
+  };
+
+  const handleCreate = async () => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) return;
+    if (!createForm.busProviderId) {
+      toast.error('Select a verified bus provider');
+      return;
+    }
+    if (!createForm.fromCityId || !createForm.toCityId) {
+      toast.error('Select from and to cities');
+      return;
+    }
+    if (createForm.fromCityId === createForm.toCityId) {
+      toast.error('From and to cities must differ');
+      return;
+    }
+    const price = Number(createForm.price);
+    const totalSeats = Number(createForm.totalSeats);
+    if (!createForm.departureTime || !createForm.station.trim()) {
+      toast.error('Departure time and station are required');
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error('Enter a valid price');
+      return;
+    }
+    if (!Number.isFinite(totalSeats) || totalSeats < 1) {
+      toast.error('Enter total seats (at least 1)');
+      return;
+    }
+    setCreateSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/bus-schedules', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          busProviderId: createForm.busProviderId,
+          fromCityId: createForm.fromCityId,
+          toCityId: createForm.toCityId,
+          departureTime: createForm.departureTime,
+          arrivalTime: createForm.arrivalTime.trim() || undefined,
+          station: createForm.station.trim(),
+          price,
+          totalSeats,
+          daysOfWeek: createForm.daysOfWeek.trim() || 'daily',
+          conductorPhone: createForm.conductorPhone.trim() || undefined,
+          isActive: createForm.isActive,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        toast.success('Schedule created — it will show for that provider in the app');
+        setShowCreate(false);
+        fetchSchedules();
+      } else {
+        toast.error(typeof data.error === 'string' ? data.error : 'Failed to create schedule');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create schedule');
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  const handleEdit = (schedule: BusSchedule & { busStation?: string }) => {
     setEditingSchedule(schedule);
     setFormData({
       departureTime: schedule.departureTime,
-      busStation: schedule.busStation,
+      busStation: scheduleStation(schedule),
       price: schedule.price,
       totalSeats: schedule.totalSeats,
       daysOfWeek: schedule.daysOfWeek,
@@ -120,9 +261,21 @@ export default function AdminBusSchedulesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Bus Schedules</h1>
-        <p className="text-gray-400">View and edit bus schedules</p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Bus Schedules</h1>
+          <p className="text-gray-400">
+            View and edit schedules. New schedules are tied to a verified bus provider and appear in their driver app.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-nexryde-yellow text-white font-semibold hover:bg-nexryde-yellow-dark transition-colors shrink-0"
+        >
+          <Plus className="w-5 h-5" />
+          Add schedule
+        </button>
       </div>
 
       <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
@@ -150,7 +303,7 @@ export default function AdminBusSchedulesPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-300">{schedule.departureTime}</td>
-                  <td className="px-6 py-4 text-gray-300">{schedule.busStation}</td>
+                  <td className="px-6 py-4 text-gray-300">{scheduleStation(schedule)}</td>
                   <td className="px-6 py-4 text-gray-300">${schedule.price.toFixed(2)}</td>
                   <td className="px-6 py-4 text-gray-300">{schedule.totalSeats}</td>
                   <td className="px-6 py-4 text-gray-300">{schedule.daysOfWeek}</td>
@@ -192,6 +345,176 @@ export default function AdminBusSchedulesPage() {
           </table>
         </div>
       </div>
+
+      {/* Create modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-700">
+            <h2 className="text-2xl font-bold text-white mb-1">Add bus schedule</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Assign to a verified bus provider from{' '}
+              <a href="/admin/bus-providers" className="text-nexryde-yellow hover:underline">
+                Bus providers
+              </a>
+              . The schedule appears in that account (app + web).
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Verified bus provider *</label>
+                <select
+                  value={createForm.busProviderId}
+                  onChange={(e) => setCreateForm({ ...createForm, busProviderId: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                >
+                  <option value="">Select provider…</option>
+                  {verifiedProviders.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.user.fullName} — {p.user.phone}
+                    </option>
+                  ))}
+                </select>
+                {verifiedProviders.length === 0 && (
+                  <p className="text-amber-400 text-xs mt-1">No verified providers. Verify one under Bus providers first.</p>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">From city *</label>
+                  <select
+                    value={createForm.fromCityId}
+                    onChange={(e) => setCreateForm({ ...createForm, fromCityId: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  >
+                    <option value="">From…</option>
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">To city *</label>
+                  <select
+                    value={createForm.toCityId}
+                    onChange={(e) => setCreateForm({ ...createForm, toCityId: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  >
+                    <option value="">To…</option>
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Departure time *</label>
+                  <input
+                    type="time"
+                    value={createForm.departureTime}
+                    onChange={(e) => setCreateForm({ ...createForm, departureTime: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Arrival time</label>
+                  <input
+                    type="time"
+                    value={createForm.arrivalTime}
+                    onChange={(e) => setCreateForm({ ...createForm, arrivalTime: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Station / terminal *</label>
+                <input
+                  type="text"
+                  value={createForm.station}
+                  onChange={(e) => setCreateForm({ ...createForm, station: e.target.value })}
+                  placeholder="e.g. Roadport"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Price (USD) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={createForm.price}
+                    onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">Total seats *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={createForm.totalSeats}
+                    onChange={(e) => setCreateForm({ ...createForm, totalSeats: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Days of week</label>
+                <input
+                  type="text"
+                  value={createForm.daysOfWeek}
+                  onChange={(e) => setCreateForm({ ...createForm, daysOfWeek: e.target.value })}
+                  placeholder="daily or monday,wednesday,friday"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">Conductor phone</label>
+                <input
+                  type="text"
+                  value={createForm.conductorPhone}
+                  onChange={(e) => setCreateForm({ ...createForm, conductorPhone: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-nexryde-yellow"
+                />
+              </div>
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={createForm.isActive}
+                  onChange={(e) => setCreateForm({ ...createForm, isActive: e.target.checked })}
+                  className="w-4 h-4 rounded"
+                  id="create-active"
+                />
+                <label htmlFor="create-active" className="text-gray-300">
+                  Active
+                </label>
+              </div>
+            </div>
+            <div className="flex space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowCreate(false)}
+                disabled={createSubmitting}
+                className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-semibold hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreate()}
+                disabled={createSubmitting}
+                className="flex-1 bg-nexryde-yellow text-white py-3 rounded-xl font-semibold hover:bg-nexryde-yellow-dark transition-colors disabled:opacity-50"
+              >
+                {createSubmitting ? 'Saving…' : 'Create schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editingSchedule && (
@@ -289,7 +612,7 @@ export default function AdminBusSchedulesPage() {
               </div>
               <div>
                 <label className="text-gray-400 text-sm">Bus Station</label>
-                <p className="text-white">{selectedSchedule.busStation}</p>
+                <p className="text-white">{scheduleStation(selectedSchedule)}</p>
               </div>
               <div>
                 <label className="text-gray-400 text-sm">Price</label>

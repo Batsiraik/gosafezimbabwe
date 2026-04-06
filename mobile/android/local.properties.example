@@ -1,0 +1,3 @@
+# Copy to local.properties (same folder). Gitignored.
+# Android Studio: Settings → Android SDK → copy "Android SDK location"
+sdk.dir=C:/Users/YOUR_USERNAME/AppData/Local/Android/Sdk
