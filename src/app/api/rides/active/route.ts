@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import jwt from 'jsonwebtoken';
+import { isJwtAuthError, verifyUserJwt } from '@/lib/auth-jwt';
+import { ensureRideRequestSchema } from '@/lib/ensure-ride-schema-runtime';
 import { cancelRidesSearchingTooLong } from '@/lib/ride-auto-cancel';
 
 export async function GET(request: NextRequest) {
@@ -15,15 +16,16 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    
-    // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-    ) as { userId: string; phone: string };
+    const decoded = verifyUserJwt(token);
+
+    await ensureRideRequestSchema();
 
     // Auto-cancel rides that have been searching for > 2 min (ride only), so rider sees cancelled and drivers don't see stale rides
-    await cancelRidesSearchingTooLong();
+    try {
+      await cancelRidesSearchingTooLong();
+    } catch (autoCancelErr) {
+      console.error('[rides/active] auto-cancel failed:', autoCancelErr);
+    }
 
     // Get active ride requests for this user
     // Active statuses: pending, searching, bid_received, accepted, in_progress, completed (if not rated yet)
@@ -126,19 +128,25 @@ export async function GET(request: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get active ride error:', error);
-    
-    // More detailed error logging
-    if (error.message?.includes('rideRequest') || error.message?.includes('Cannot read properties')) {
-      console.error('Prisma client may need regeneration. Run: npx prisma generate');
-      console.error('Then restart your dev server.');
+
+    if (isJwtAuthError(error)) {
+      return NextResponse.json(
+        { error: 'Unauthorized or invalid token' },
+        { status: 401 }
+      );
     }
-    
+
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('rideRequest') || message.includes('Cannot read properties')) {
+      console.error('Prisma client may need regeneration. Run: npx prisma generate');
+    }
+
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? message : undefined,
       },
       { status: 500 }
     );
